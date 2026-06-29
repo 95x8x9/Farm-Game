@@ -1,0 +1,14 @@
+{
+  "files.exclude": {
+    "**/Library": true,
+    "**/Logs": true,
+    "**/Obj": true,
+    "**/Temp": true
+  },
+  "search.exclude": {
+    "**/Library": true,
+    "**/Logs": true,
+    "**/Obj": true,
+    "**/Temp": true
+  }
+}

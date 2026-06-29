@@ -1,0 +1,63 @@
+name: Repository Hygiene
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Validate Unity project baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f ProjectSettings/ProjectVersion.txt
+          test -f Packages/manifest.json
+          test -f Packages/packages-lock.json
+          grep -q "m_EditorVersion: 6000.3.10f1" ProjectSettings/ProjectVersion.txt
+          python -m json.tool Packages/manifest.json >/dev/null
+          python -m json.tool Packages/packages-lock.json >/dev/null
+
+      - name: Reject generated Unity folders
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git ls-files | grep -E '(^|/)(Library|Temp|Obj|Logs|UserSettings|Build|Builds|WebBuild)/'; then
+            echo "Generated Unity files must not be committed."
+            exit 1
+          fi
+
+      - name: Check Unity meta files
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+
+          while IFS= read -r -d '' path; do
+            if [[ "$path" == *.meta ]]; then
+              continue
+            fi
+            if [[ ! -f "${path}.meta" ]]; then
+              echo "Missing meta file: ${path}.meta"
+              missing=1
+            fi
+          done < <(find Assets -type f -print0)
+
+          while IFS= read -r -d '' path; do
+            if [[ ! -f "${path}.meta" ]]; then
+              echo "Missing folder meta file: ${path}.meta"
+              missing=1
+            fi
+          done < <(find Assets -mindepth 1 -type d -print0)
+
+          exit "$missing"

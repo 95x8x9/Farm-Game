@@ -1,0 +1,81 @@
+# Unity generated folders
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/WebBuild/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+*.log
+
+# Memory captures and recordings can be large and may contain sensitive data
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# IDE and editor generated files
+.vs/
+.idea/
+.vsconfig
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.DotSettings.user
+
+# OS generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Unity and crash generated files
+ExportedObj/
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+sysinfo.txt
+mono_crash.*
+
+# Build products
+*.apk
+*.aab
+*.app
+*.unitypackage
+*.unitypackage.meta
+crashlytics-build.properties
+
+# Blender backup files
+*.blend1
+*.blend1.meta
+
+# Generated plugins and caches
+/[Aa]ssets/Plugins/Editor/JetBrains*
+.gradle/
+/[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Test Runner generated scenes
+/[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# Addressables generated output
+/ServerData/
+/[Aa]ssets/StreamingAssets/aa*
+/[Aa]ssets/AddressableAssetsData/link.xml*
+/[Aa]ssets/Addressables_Temp*
+/[Aa]ssets/AddressableAssetsData/*/*.bin*
+
+# Visual Scripting generated output
+/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db
+/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Flow/UnitOptions.db.meta
+/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers/
+/[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers.meta
