@@ -24,13 +24,3 @@
 ## 씬 다시 생성
 
 Unity 메뉴에서 `Farm Game > Prototype > Rebuild Farm Scene`을 실행한다. 이 작업은 `FarmScene`과 `Wheat.asset`을 프로토타입 기본값으로 다시 만든다.
-
-## Web 빌드 환경
-
-이 PC의 Unity Web Build Support 설치에는 다음 폴더가 없어 빌드 후처리가 중단된다.
-
-```text
-C:/Program Files/Unity/Hub/Editor/6000.3.10f1/Editor/Data/PlaybackEngines/WebGLSupport/BuildTools/prejs
-```
-
-Unity Hub에서 해당 Editor의 Web Build Support 모듈을 제거 후 다시 설치한 다음 `Farm Game > Build > Web > Development`로 재검증한다.
