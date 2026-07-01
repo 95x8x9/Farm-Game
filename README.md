@@ -2,6 +2,12 @@
 
 가속 시스템과 실시간 성장을 결합한 2D 농장 게임 팀 프로젝트입니다. Unity Web 빌드를 우선 대상으로 개발합니다.
 
+## 바로 실행하기
+
+[GitHub Pages에서 게임 실행](https://95x8x9.github.io/Farm-Game/)
+
+배포된 WebGL 버전은 Unity Editor를 설치하지 않아도 최신 웹 브라우저에서 실행할 수 있습니다. 게임 실행 파일은 GitHub Pages가 정적 파일로 제공하므로 별도의 백엔드 서버는 필요하지 않습니다. 현재 저장 데이터는 브라우저의 IndexedDB에 보관되며, 브라우저 데이터 삭제 또는 다른 기기·브라우저 사용 시 공유되지 않습니다.
+
 ## 고정 개발 환경
 
 - Unity Editor: `6000.3.10f1`
@@ -74,7 +80,28 @@ Unity 메뉴에서 다음 명령을 사용할 수 있습니다.
   -logFile "Logs/web-build.log"
 ```
 
-웹 배포 파일은 소스 브랜치에 커밋하지 않습니다. 추후 CI 또는 별도 배포 단계에서 생성합니다.
+웹 배포 파일은 용량이 크고 빌드 결과물에 해당하므로 소스 브랜치에는 커밋하지 않습니다.
+
+### GitHub Pages 배포
+
+현재 공개 버전은 별도의 `gh-pages` 브랜치 루트에 WebGL 빌드 결과를 올려 배포합니다. GitHub Pages는 정적 웹 서버 역할만 하며 게임 로직과 저장은 브라우저에서 실행됩니다.
+
+배포 순서는 다음과 같습니다.
+
+1. Unity에서 `Farm Game > Build > Web > Release`를 실행합니다.
+2. `Builds/Web`의 결과물과 `index.html`, `TemplateData`를 배포용 폴더에 복사합니다.
+3. Brotli 압축 파일(`.br`)을 사용하는 경우 서버가 `Content-Encoding: br` 헤더를 보내야 합니다. GitHub Pages에 직접 배포할 때는 압축을 해제하고 `index.html`의 파일 경로도 함께 수정합니다.
+4. 배포용 파일을 `gh-pages` 브랜치에 커밋하고 푸시합니다.
+5. [공개 주소](https://95x8x9.github.io/Farm-Game/)에서 로딩과 한글 표시를 확인합니다.
+
+WebGL 빌드는 `file://`로 직접 열면 브라우저 보안 정책 때문에 실행되지 않을 수 있습니다. 로컬 테스트도 간단한 HTTP 서버를 사용합니다.
+
+```powershell
+cd Builds/Web
+python -m http.server 8000
+```
+
+그다음 브라우저에서 `http://localhost:8000`을 엽니다.
 
 ## Git에 포함하는 항목
 
