@@ -1,0 +1,16 @@
+{
+  "name": "cloud-farm-api",
+  "version": "1.0.0",
+  "description": "Cloud Farm: NCP 기반 웹 2D 농장 게임 - 백엔드 API",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cookie-parser": "^1.4.6",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.10.0"
+  }
+}
