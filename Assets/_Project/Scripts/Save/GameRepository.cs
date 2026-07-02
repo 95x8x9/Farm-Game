@@ -31,7 +31,7 @@ namespace FarmGame.Save
             try
             {
                 data = JsonUtility.FromJson<PlayerSaveData>(json);
-                return data != null && data.schemaVersion == 1;
+                return data != null && data.schemaVersion is >= 1 and <= 2;
             }
             catch
             {

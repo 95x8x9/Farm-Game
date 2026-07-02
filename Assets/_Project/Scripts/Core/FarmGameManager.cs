@@ -19,30 +19,65 @@ namespace FarmGame.Core
         [SerializeField] private FarmCellView[] cellViews;
         [SerializeField] private FarmHud hud;
         [SerializeField] private WateringMinigame wateringMinigame;
+        [SerializeField] private FarmShopPanel shopPanel;
+        [SerializeField] private FirstPlotTutorialPopup firstPlotTutorialPopup;
+        [SerializeField] private Rect plotPlacementBounds = new(-2.95f, -3.25f, 5.0f, 6.2f);
+        [SerializeField] private Vector2 plotFootprint = new(1.36f, 1.44f);
+        [SerializeField] private LayerMask placementBlockingLayers = ~0;
 
         private IGameRepository repository;
         private ITimeProvider timeProvider;
         private PlayerSaveData saveData;
         private float nextRefreshTime;
+        private int inputBlockThroughFrame = -1;
+        private bool isPlacingPlot;
+        private bool hasPlacementPreviewPosition;
+        private bool canPlaceAtPreviewPosition;
+        private Vector2 placementPreviewPosition;
+        private FarmCellState placementCell;
+        private FarmCellView placementPreviewView;
 
         public bool IsMinigameActive => wateringMinigame != null && wateringMinigame.IsPlaying;
+        public bool IsPlacingPlot => isPlacingPlot;
+        public bool IsInputBlocked => IsMinigameActive
+            || (shopPanel != null && shopPanel.IsOpen)
+            || (firstPlotTutorialPopup != null && firstPlotTutorialPopup.IsVisible)
+            || Time.frameCount <= inputBlockThroughFrame;
 
         public void Configure(
             CropDefinition wheatDefinition,
             FarmCellView[] views,
             FarmHud hudReference,
-            WateringMinigame minigame)
+            WateringMinigame minigame,
+            FarmShopPanel shop,
+            FirstPlotTutorialPopup tutorialPopup)
         {
             wheat = wheatDefinition;
             cellViews = views;
             hud = hudReference;
             wateringMinigame = minigame;
+            shopPanel = shop;
+            firstPlotTutorialPopup = tutorialPopup;
         }
 
         private void Awake()
         {
             repository = new PlayerPrefsGameRepository();
             timeProvider = new SystemTimeProvider();
+            Canvas canvas = FindFirstObjectByType<Canvas>();
+            if (shopPanel == null && canvas != null)
+            {
+                shopPanel = FarmShopPanel.Create(canvas.transform);
+            }
+
+            shopPanel?.Initialize(BeginPlotPlacement, HandleShopVisibilityChanged);
+            if (firstPlotTutorialPopup == null)
+            {
+                if (canvas != null)
+                {
+                    firstPlotTutorialPopup = FirstPlotTutorialPopup.Create(canvas.transform);
+                }
+            }
 
             bool loaded = repository.TryLoad(out saveData);
             if (!loaded)
@@ -54,7 +89,16 @@ namespace FarmGame.Core
             RefreshAll();
             hud.SetMessage(loaded
                 ? "저장을 불러왔습니다. 자란 밀은 노란색으로 표시됩니다."
-                : "회색 밭을 눌러 100원에 구매하세요.  R: 저장 초기화");
+                : "상점에서 밭을 고른 뒤 원하는 위치에 배치하세요.  R: 저장 초기화");
+
+            if (loaded)
+            {
+                firstPlotTutorialPopup?.Hide();
+            }
+            else
+            {
+                firstPlotTutorialPopup?.Show(HandleFirstPlotTutorialDismissed);
+            }
         }
 
         private void Update()
@@ -92,7 +136,7 @@ namespace FarmGame.Core
             switch (cell.GetStatus(wheat, timeProvider.UtcNowSeconds))
             {
                 case FarmCellStatus.Locked:
-                    PurchasePlot(cell);
+                    hud.SetMessage("밭은 상점 탭에서 구매할 수 있습니다.");
                     break;
                 case FarmCellStatus.Empty:
                     PlantWheat(cell);
@@ -109,16 +153,104 @@ namespace FarmGame.Core
             }
         }
 
+        public void UpdatePlotPlacementPreview(Vector2 worldPosition)
+        {
+            if (!isPlacingPlot || placementPreviewView == null)
+            {
+                return;
+            }
+
+            placementPreviewPosition = worldPosition;
+            hasPlacementPreviewPosition = true;
+            canPlaceAtPreviewPosition = CanPlacePlotAt(worldPosition);
+            placementPreviewView.ShowPlacementPreview(worldPosition, canPlaceAtPreviewPosition);
+        }
+
+        public void TryPlacePlotAt(Vector2 worldPosition)
+        {
+            if (!isPlacingPlot || placementCell == null || placementPreviewView == null)
+            {
+                return;
+            }
+
+            UpdatePlotPlacementPreview(worldPosition);
+            if (!canPlaceAtPreviewPosition)
+            {
+                hud.SetMessage("이 위치에는 설치할 수 없습니다. 농장 안의 겹치지 않는 공간을 선택하세요.");
+                return;
+            }
+
+            if (saveData.money < PlotPrice)
+            {
+                CancelPlotPlacement();
+                hud.SetMessage($"밭 구매에는 {PlotPrice}원이 필요합니다.");
+                return;
+            }
+
+            saveData.money -= PlotPrice;
+            placementCell.purchased = true;
+            placementCell.hasWorldPosition = true;
+            placementCell.worldX = worldPosition.x;
+            placementCell.worldY = worldPosition.y;
+            isPlacingPlot = false;
+            ClearPlacementPreview();
+            Commit($"선택한 위치에 밭을 설치했습니다! 다시 누르면 밀 씨앗을 심습니다. (-{PlotPrice}원)");
+            shopPanel?.Open();
+        }
+
+        public void CancelPlotPlacement()
+        {
+            if (!isPlacingPlot)
+            {
+                return;
+            }
+
+            isPlacingPlot = false;
+            ClearPlacementPreview();
+            RefreshAll();
+            hud.SetMessage("밭 배치를 취소했습니다. 아직 돈은 사용되지 않았습니다.");
+        }
+
         public void ResetProgress()
         {
+            firstPlotTutorialPopup?.Hide();
+            shopPanel?.Close();
+            isPlacingPlot = false;
+            ClearPlacementPreview();
             repository.Delete();
             saveData = CreateNewSave();
             Save();
             RefreshAll();
-            hud.SetMessage("새 농장으로 초기화했습니다. 회색 밭을 눌러 시작하세요.");
+            hud.SetMessage("새 농장으로 초기화했습니다. 상점에서 밭을 골라 시작하세요.");
         }
 
-        private void PurchasePlot(FarmCellState cell)
+        private void HandleFirstPlotTutorialDismissed(bool purchaseRequested)
+        {
+            inputBlockThroughFrame = Time.frameCount;
+            if (!purchaseRequested)
+            {
+                Save();
+                return;
+            }
+
+            OpenShop();
+        }
+
+        private void OpenShop()
+        {
+            isPlacingPlot = false;
+            ClearPlacementPreview();
+            shopPanel?.Open();
+            RefreshAll();
+            hud.SetMessage("상점에서 밭 상품의 '배치' 버튼을 누르세요.");
+        }
+
+        private void HandleShopVisibilityChanged()
+        {
+            inputBlockThroughFrame = Time.frameCount;
+        }
+
+        private void BeginPlotPlacement()
         {
             if (saveData.money < PlotPrice)
             {
@@ -126,9 +258,57 @@ namespace FarmGame.Core
                 return;
             }
 
-            saveData.money -= PlotPrice;
-            cell.purchased = true;
-            Commit($"밭을 구매했습니다! 빈 밭을 다시 누르면 밀 씨앗을 심습니다. (-{PlotPrice}원)");
+            placementCell = saveData.cells.FirstOrDefault(cell => !cell.purchased);
+            placementPreviewView = placementCell == null ? null : FindView(placementCell.x, placementCell.y);
+            if (placementCell == null || placementPreviewView == null)
+            {
+                hud.SetMessage("더 이상 밭을 배치할 공간이 없습니다.");
+                ClearPlacementPreview();
+                return;
+            }
+
+            shopPanel?.Close();
+            inputBlockThroughFrame = Time.frameCount;
+            isPlacingPlot = true;
+            hasPlacementPreviewPosition = false;
+            canPlaceAtPreviewPosition = false;
+            RefreshAll();
+            hud.SetMessage("빈 공간으로 밭을 옮긴 뒤 클릭해 설치하세요. 빨간색은 설치 불가 위치입니다.");
+        }
+
+        private bool CanPlacePlotAt(Vector2 worldPosition)
+        {
+            if (!plotPlacementBounds.Contains(worldPosition))
+            {
+                return false;
+            }
+
+            Collider2D[] overlaps = Physics2D.OverlapBoxAll(worldPosition, plotFootprint, 0f, placementBlockingLayers);
+            foreach (Collider2D overlap in overlaps)
+            {
+                if (overlap == null || !overlap.enabled)
+                {
+                    continue;
+                }
+
+                FarmCellView cellView = overlap.GetComponentInParent<FarmCellView>();
+                if (cellView == placementPreviewView)
+                {
+                    continue;
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        private void ClearPlacementPreview()
+        {
+            hasPlacementPreviewPosition = false;
+            canPlaceAtPreviewPosition = false;
+            placementCell = null;
+            placementPreviewView = null;
         }
 
         private void PlantWheat(FarmCellState cell)
@@ -227,13 +407,31 @@ namespace FarmGame.Core
             foreach (FarmCellView view in cellViews)
             {
                 FarmCellState state = FindCell(view.X, view.Y);
-                if (state != null)
+                if (state == null || !state.purchased)
                 {
-                    view.Refresh(state, wheat, now);
+                    if (!(isPlacingPlot && view == placementPreviewView && hasPlacementPreviewPosition))
+                    {
+                        view.Hide();
+                    }
+
+                    continue;
                 }
+
+                if (state.hasWorldPosition)
+                {
+                    view.SetWorldPosition(state.worldX, state.worldY);
+                }
+
+                view.Refresh(state, wheat, now);
+            }
+
+            if (isPlacingPlot && placementPreviewView != null && hasPlacementPreviewPosition)
+            {
+                placementPreviewView.ShowPlacementPreview(placementPreviewPosition, canPlaceAtPreviewPosition);
             }
 
             hud.Refresh(saveData.money, saveData.totalWheatHarvested);
+            shopPanel?.Refresh(PlotPrice, saveData.money, saveData.cells.Count(cell => !cell.purchased));
         }
 
         private PlayerSaveData CreateNewSave()
@@ -264,6 +462,17 @@ namespace FarmGame.Core
             long now = timeProvider.UtcNowSeconds;
             foreach (FarmCellState cell in saveData.cells)
             {
+                if (cell.purchased && !cell.hasWorldPosition)
+                {
+                    FarmCellView view = FindView(cell.x, cell.y);
+                    if (view != null)
+                    {
+                        cell.hasWorldPosition = true;
+                        cell.worldX = view.transform.position.x;
+                        cell.worldY = view.transform.position.y;
+                    }
+                }
+
                 if (string.IsNullOrEmpty(cell.cropId) || cell.readyAtUtc > 0)
                 {
                     continue;
@@ -274,6 +483,8 @@ namespace FarmGame.Core
                 cell.growthStartedAtUtc = startedAt;
                 cell.readyAtUtc = startedAt + wheat.GrowthSeconds;
             }
+
+            saveData.schemaVersion = 2;
         }
 
         private int GetMaxWaterCount()
@@ -284,6 +495,11 @@ namespace FarmGame.Core
         private FarmCellState FindCell(int x, int y)
         {
             return saveData.cells.FirstOrDefault(cell => cell.x == x && cell.y == y);
+        }
+
+        private FarmCellView FindView(int x, int y)
+        {
+            return cellViews.FirstOrDefault(view => view.X == x && view.Y == y);
         }
     }
 }

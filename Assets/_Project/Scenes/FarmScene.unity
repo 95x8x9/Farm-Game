@@ -520,6 +520,10 @@ MonoBehaviour:
   soilRenderer: {fileID: 234142914}
   cropRenderer: {fileID: 450426686}
   accentRenderer: {fileID: 1115798471}
+  soilSprite: {fileID: 2863357507834450306, guid: 0ca7ba51b80553244a3eaf675881c9e1, type: 3}
+  seedSprite: {fileID: 1151331837977876966, guid: d1d3eb5eeab1f2941b12b6d6f21c59f5, type: 3}
+  sproutSprite: {fileID: 1577089117004021004, guid: 3a3145486c31df6408ed5b7e8f874bbb, type: 3}
+  wheatSprite: {fileID: -4596302913201727478, guid: 7b2b9e12c27aeb84e98abc3c2d7fce7f, type: 3}
 --- !u!61 &234142913
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -864,6 +868,7 @@ GameObject:
   - component: {fileID: 508604894}
   - component: {fileID: 508604893}
   - component: {fileID: 508604892}
+  - component: {fileID: 508604895}
   m_Layer: 0
   m_Name: Farm Path
   m_TagString: Untagged
@@ -957,6 +962,52 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!61 &508604895
+BoxCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 508604891}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: 0}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0.5, y: 0.5}
+    oldSize: {x: 1, y: 1}
+    newSize: {x: 1, y: 1}
+    adaptiveTilingThreshold: 0.5
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Size: {x: 1, y: 1}
+  m_EdgeRadius: 0
 --- !u!1 &581350330
 GameObject:
   m_ObjectHideFlags: 0
@@ -1101,6 +1152,10 @@ MonoBehaviour:
   soilRenderer: {fileID: 630788164}
   cropRenderer: {fileID: 2024106369}
   accentRenderer: {fileID: 926266321}
+  soilSprite: {fileID: 2863357507834450306, guid: 0ca7ba51b80553244a3eaf675881c9e1, type: 3}
+  seedSprite: {fileID: 1151331837977876966, guid: d1d3eb5eeab1f2941b12b6d6f21c59f5, type: 3}
+  sproutSprite: {fileID: 1577089117004021004, guid: 3a3145486c31df6408ed5b7e8f874bbb, type: 3}
+  wheatSprite: {fileID: -4596302913201727478, guid: 7b2b9e12c27aeb84e98abc3c2d7fce7f, type: 3}
 --- !u!61 &630788163
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -1832,6 +1887,10 @@ MonoBehaviour:
   soilRenderer: {fileID: 793949486}
   cropRenderer: {fileID: 581350332}
   accentRenderer: {fileID: 766424574}
+  soilSprite: {fileID: 2863357507834450306, guid: 0ca7ba51b80553244a3eaf675881c9e1, type: 3}
+  seedSprite: {fileID: 1151331837977876966, guid: d1d3eb5eeab1f2941b12b6d6f21c59f5, type: 3}
+  sproutSprite: {fileID: 1577089117004021004, guid: 3a3145486c31df6408ed5b7e8f874bbb, type: 3}
+  wheatSprite: {fileID: -4596302913201727478, guid: 7b2b9e12c27aeb84e98abc3c2d7fce7f, type: 3}
 --- !u!61 &793949485
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -1971,8 +2030,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
-  m_AnchoredPosition: {x: 28, y: 0}
-  m_SizeDelta: {x: 280, y: 54}
+  m_AnchoredPosition: {x: 72, y: 0}
+  m_SizeDelta: {x: 236, y: 54}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!222 &898750722
 CanvasRenderer:
@@ -2016,6 +2075,81 @@ MonoBehaviour:
     m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: "\uBCF4\uC720\uAE08"
+--- !u!1 &2147000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2147000002}
+  - component: {fileID: 2147000003}
+  - component: {fileID: 2147000004}
+  m_Layer: 0
+  m_Name: Coin Icon
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &2147000002
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2147000001}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2051102005}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0.5}
+  m_AnchorMax: {x: 0, y: 0.5}
+  m_AnchoredPosition: {x: 28, y: 0}
+  m_SizeDelta: {x: 36, y: 36}
+  m_Pivot: {x: 0, y: 0.5}
+--- !u!222 &2147000003
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2147000001}
+  m_CullTransparentMesh: 1
+--- !u!114 &2147000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2147000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 0
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 8139719423079072813, guid: e8921f9c6ad6cb147ad3903850a17579, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 1
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
 --- !u!1 &926266319
 GameObject:
   m_ObjectHideFlags: 0
@@ -2177,9 +2311,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "\uD68C\uC0C9: \uC7A0\uAE40   \uAC08\uC0C9: \uBE48 \uBC2D   \uD30C\uB780
-    \uD45C\uC2DC: \uBB3C \uD544\uC694   \uCD08\uB85D: \uC131\uC7A5   \uB178\uB791:
-    \uC218\uD655"
+  m_Text: "상점: 자유 배치   빨강: 설치 불가   파란 표시: 물 필요   초록: 성장   노랑: 수확"
 --- !u!222 &934079063
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -2230,6 +2362,18 @@ MonoBehaviour:
   - {fileID: 967895873}
   hud: {fileID: 1381663402}
   wateringMinigame: {fileID: 1381663401}
+  shopPanel: {fileID: 0}
+  firstPlotTutorialPopup: {fileID: 0}
+  plotPlacementBounds:
+    serializedVersion: 2
+    x: -2.95
+    y: -3.25
+    width: 5
+    height: 6.2
+  plotFootprint: {x: 1.36, y: 1.44}
+  placementBlockingLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!4 &947325655
 Transform:
   m_ObjectHideFlags: 0
@@ -2298,6 +2442,10 @@ MonoBehaviour:
   soilRenderer: {fileID: 967895875}
   cropRenderer: {fileID: 668838287}
   accentRenderer: {fileID: 2027734510}
+  soilSprite: {fileID: 2863357507834450306, guid: 0ca7ba51b80553244a3eaf675881c9e1, type: 3}
+  seedSprite: {fileID: 1151331837977876966, guid: d1d3eb5eeab1f2941b12b6d6f21c59f5, type: 3}
+  sproutSprite: {fileID: 1577089117004021004, guid: 3a3145486c31df6408ed5b7e8f874bbb, type: 3}
+  wheatSprite: {fileID: -4596302913201727478, guid: 7b2b9e12c27aeb84e98abc3c2d7fce7f, type: 3}
 --- !u!61 &967895874
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -2662,6 +2810,10 @@ MonoBehaviour:
   soilRenderer: {fileID: 1137414042}
   cropRenderer: {fileID: 152096506}
   accentRenderer: {fileID: 1584227708}
+  soilSprite: {fileID: 2863357507834450306, guid: 0ca7ba51b80553244a3eaf675881c9e1, type: 3}
+  seedSprite: {fileID: 1151331837977876966, guid: d1d3eb5eeab1f2941b12b6d6f21c59f5, type: 3}
+  sproutSprite: {fileID: 1577089117004021004, guid: 3a3145486c31df6408ed5b7e8f874bbb, type: 3}
+  wheatSprite: {fileID: -4596302913201727478, guid: 7b2b9e12c27aeb84e98abc3c2d7fce7f, type: 3}
 --- !u!61 &1137414041
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -2820,6 +2972,10 @@ MonoBehaviour:
   soilRenderer: {fileID: 1152144833}
   cropRenderer: {fileID: 387000499}
   accentRenderer: {fileID: 228608259}
+  soilSprite: {fileID: 2863357507834450306, guid: 0ca7ba51b80553244a3eaf675881c9e1, type: 3}
+  seedSprite: {fileID: 1151331837977876966, guid: d1d3eb5eeab1f2941b12b6d6f21c59f5, type: 3}
+  sproutSprite: {fileID: 1577089117004021004, guid: 3a3145486c31df6408ed5b7e8f874bbb, type: 3}
+  wheatSprite: {fileID: -4596302913201727478, guid: 7b2b9e12c27aeb84e98abc3c2d7fce7f, type: 3}
 --- !u!61 &1152144832
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -3069,6 +3225,10 @@ MonoBehaviour:
   soilRenderer: {fileID: 1200091480}
   cropRenderer: {fileID: 1223659969}
   accentRenderer: {fileID: 2107403717}
+  soilSprite: {fileID: 2863357507834450306, guid: 0ca7ba51b80553244a3eaf675881c9e1, type: 3}
+  seedSprite: {fileID: 1151331837977876966, guid: d1d3eb5eeab1f2941b12b6d6f21c59f5, type: 3}
+  sproutSprite: {fileID: 1577089117004021004, guid: 3a3145486c31df6408ed5b7e8f874bbb, type: 3}
+  wheatSprite: {fileID: -4596302913201727478, guid: 7b2b9e12c27aeb84e98abc3c2d7fce7f, type: 3}
 --- !u!61 &1200091479
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -4118,7 +4278,7 @@ Sprite:
         format: 0
         dimension: 0
       m_DataSize: 80
-      _typelessdata: 000000bf0000003f000000000000003f0000003f00000000000000bf000000bf000000000000003f000000bf000000000000000000000000000000000000000000000000000000000000000000000000
+      _typelessdata: 000000bf0000003f000000000000003f0000003f00000000000000bf000000bf000000000000003f000000bf00000000000000000000803f0000803f0000803f00000000000000000000803f00000000
     m_Bindpose: []
     textureRect:
       serializedVersion: 2
@@ -4356,6 +4516,10 @@ MonoBehaviour:
   soilRenderer: {fileID: 1888724388}
   cropRenderer: {fileID: 694453185}
   accentRenderer: {fileID: 182500601}
+  soilSprite: {fileID: 2863357507834450306, guid: 0ca7ba51b80553244a3eaf675881c9e1, type: 3}
+  seedSprite: {fileID: 1151331837977876966, guid: d1d3eb5eeab1f2941b12b6d6f21c59f5, type: 3}
+  sproutSprite: {fileID: 1577089117004021004, guid: 3a3145486c31df6408ed5b7e8f874bbb, type: 3}
+  wheatSprite: {fileID: -4596302913201727478, guid: 7b2b9e12c27aeb84e98abc3c2d7fce7f, type: 3}
 --- !u!61 &1888724387
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -4514,6 +4678,10 @@ MonoBehaviour:
   soilRenderer: {fileID: 1922428580}
   cropRenderer: {fileID: 1187245488}
   accentRenderer: {fileID: 1487892751}
+  soilSprite: {fileID: 2863357507834450306, guid: 0ca7ba51b80553244a3eaf675881c9e1, type: 3}
+  seedSprite: {fileID: 1151331837977876966, guid: d1d3eb5eeab1f2941b12b6d6f21c59f5, type: 3}
+  sproutSprite: {fileID: 1577089117004021004, guid: 3a3145486c31df6408ed5b7e8f874bbb, type: 3}
+  wheatSprite: {fileID: -4596302913201727478, guid: 7b2b9e12c27aeb84e98abc3c2d7fce7f, type: 3}
 --- !u!61 &1922428579
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -4911,6 +5079,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1698659245}
+  - {fileID: 2147000002}
   - {fileID: 898750721}
   - {fileID: 1955178994}
   m_Father: {fileID: 1381663407}
