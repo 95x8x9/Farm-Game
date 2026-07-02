@@ -8,21 +8,22 @@ const CROPS = {
     seedPrice: 10,          // 씨앗 가격
     sellPrice: 20,          // 판매 가격
     growSeconds: 60,        // 성장 시간
-    waterRequired: 1,       // 물 필요 횟수
-    waterReduceSeconds: 0,  // 밀은 물을 줘도 시간이 단축되지 않음
+    maxWaterCount: 1,       // 성장 시간 1분 = 물주기 최대 1회
   },
   potato_seed: {
     cropType: 'potato',
     seedPrice: 30,
     sellPrice: 60,
     growSeconds: 180,
-    waterRequired: 3,
-    waterReduceSeconds: 60, // 감자는 물 줄 때마다 남은 시간 60초 감소
+    maxWaterCount: 3,       // 성장 시간 3분 = 물주기 최대 3회
   },
 };
 
 // 밭 구매 관련 상수 (9~10번 문서 기준)
 const PLOT_PRICE = 100;
+const PLOT_COUNT = 9;
+const WATER_SUCCESS_REDUCTION_SECONDS = 60;
+const WATER_FAIL_REDUCTION_SECONDS = 30;
 
 // 누적 수확 관련 상수
 const BATCH_UNLOCK_HARVEST_COUNT = 5; // 밀 5번 수확 시 4칸 동시 작업 해금
@@ -36,6 +37,9 @@ function getCropConfig(seedType) {
 module.exports = {
   CROPS,
   PLOT_PRICE,
+  PLOT_COUNT,
+  WATER_SUCCESS_REDUCTION_SECONDS,
+  WATER_FAIL_REDUCTION_SECONDS,
   BATCH_UNLOCK_HARVEST_COUNT,
   DEFAULT_CONCURRENT_LIMIT,
   UNLOCKED_CONCURRENT_LIMIT,

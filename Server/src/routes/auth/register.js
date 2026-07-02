@@ -8,7 +8,7 @@ const STARTING_MONEY = 500; // 문서 3단계: 초기 자금 500원
 
 // POST /api/auth/register
 router.post('/', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password } = req.body || {};
 
   if (!username || !password) {
     return res.status(400).json({ error: 'invalid_input', message: 'username, password를 모두 입력해주세요.' });

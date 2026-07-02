@@ -1,6 +1,9 @@
 const pool = require('../config/db');
 const {
   PLOT_PRICE,
+  PLOT_COUNT,
+  WATER_SUCCESS_REDUCTION_SECONDS,
+  WATER_FAIL_REDUCTION_SECONDS,
   BATCH_UNLOCK_HARVEST_COUNT,
   DEFAULT_CONCURRENT_LIMIT,
   UNLOCKED_CONCURRENT_LIMIT,
@@ -33,9 +36,10 @@ async function syncPlotStates(conn, userId) {
   );
 }
 
-async function getOrCreatePlayerState(conn, userId) {
+async function getOrCreatePlayerState(conn, userId, lockForUpdate = false) {
+  const lockClause = lockForUpdate ? ' FOR UPDATE' : '';
   const [rows] = await conn.execute(
-    'SELECT * FROM player_state WHERE user_id = ?',
+    `SELECT * FROM player_state WHERE user_id = ?${lockClause}`,
     [userId]
   );
   if (rows.length > 0) return rows[0];
@@ -46,10 +50,16 @@ async function getOrCreatePlayerState(conn, userId) {
     [userId]
   );
   const [created] = await conn.execute(
-    'SELECT * FROM player_state WHERE user_id = ?',
+    `SELECT * FROM player_state WHERE user_id = ?${lockClause}`,
     [userId]
   );
   return created[0];
+}
+
+function validatePlotIndex(plotIndex) {
+  if (!Number.isInteger(plotIndex) || plotIndex < 0 || plotIndex >= PLOT_COUNT) {
+    throw new ApiError(400, 'invalid_input', `plotIndex는 0~${PLOT_COUNT - 1} 사이의 정수여야 합니다.`);
+  }
 }
 
 /** 1) 내 농장 데이터 불러오기 (GET /api/farm) */
@@ -90,15 +100,13 @@ async function getFarmData(userId) {
 
 /** 2) 밭 구매 (POST /api/plots/buy) body: { plotIndex } */
 async function buyPlot(userId, plotIndex) {
-  if (!Number.isInteger(plotIndex) || plotIndex < 0) {
-    throw new ApiError(400, 'invalid_input', 'plotIndex가 올바르지 않습니다.');
-  }
+  validatePlotIndex(plotIndex);
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
-    const playerState = await getOrCreatePlayerState(conn, userId);
+    const playerState = await getOrCreatePlayerState(conn, userId, true);
 
     const [existing] = await conn.execute(
       'SELECT * FROM plots WHERE user_id = ? AND plot_index = ? FOR UPDATE',
@@ -149,7 +157,7 @@ async function buySeed(userId, seedType, quantity) {
   try {
     await conn.beginTransaction();
 
-    const playerState = await getOrCreatePlayerState(conn, userId);
+    const playerState = await getOrCreatePlayerState(conn, userId, true);
     const totalPrice = crop.seedPrice * qty;
 
     if (playerState.money < totalPrice) {
@@ -180,6 +188,7 @@ async function buySeed(userId, seedType, quantity) {
 
 /** 4) 작물 심기 (POST /api/crops/plant) body: { plotIndex, seedType } */
 async function plantCrop(userId, plotIndex, seedType) {
+  validatePlotIndex(plotIndex);
   const crop = getCropConfig(seedType);
   if (!crop) throw new ApiError(400, 'invalid_seed_type', '존재하지 않는 씨앗입니다.');
 
@@ -187,7 +196,7 @@ async function plantCrop(userId, plotIndex, seedType) {
   try {
     await conn.beginTransaction();
 
-    const playerState = await getOrCreatePlayerState(conn, userId);
+    const playerState = await getOrCreatePlayerState(conn, userId, true);
 
     const [plotRows] = await conn.execute(
       'SELECT * FROM plots WHERE user_id = ? AND plot_index = ? FOR UPDATE',
@@ -251,8 +260,13 @@ async function plantCrop(userId, plotIndex, seedType) {
   }
 }
 
-/** 5) 물주기 (POST /api/crops/water) body: { plotIndex } */
-async function waterCrop(userId, plotIndex) {
+/** 5) 물주기 (POST /api/crops/water) body: { plotIndex, succeeded } */
+async function waterCrop(userId, plotIndex, succeeded) {
+  validatePlotIndex(plotIndex);
+  if (typeof succeeded !== 'boolean') {
+    throw new ApiError(400, 'invalid_input', 'succeeded는 boolean 값이어야 합니다.');
+  }
+
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -274,19 +288,22 @@ async function waterCrop(userId, plotIndex) {
     const crop = getCropConfig(`${plot.crop_type}_seed`);
     if (!crop) throw new ApiError(500, 'unknown_crop', '알 수 없는 작물입니다.');
 
-    if (plot.water_count >= crop.waterRequired) {
-      throw new ApiError(409, 'water_already_full', '이미 필요한 물주기 횟수를 채웠습니다.');
+    if (plot.water_count >= crop.maxWaterCount) {
+      throw new ApiError(409, 'water_attempts_exhausted', '사용 가능한 물주기 횟수를 모두 사용했습니다.');
     }
 
     const newWaterCount = plot.water_count + 1;
+    const reductionSeconds = succeeded
+      ? WATER_SUCCESS_REDUCTION_SECONDS
+      : WATER_FAIL_REDUCTION_SECONDS;
 
-    // 감자처럼 물 줄 때마다 남은 시간이 줄어드는 작물 처리 (현재 시각보다 앞으로는 안 감)
+    // 성공은 60초, 실패는 30초를 줄이고 완료 시각이 현재보다 과거로 내려가지 않게 한다.
     await conn.execute(
       `UPDATE plots
        SET water_count = ?,
            ready_at = GREATEST(NOW(), DATE_SUB(ready_at, INTERVAL ? SECOND))
        WHERE user_id = ? AND plot_index = ?`,
-      [newWaterCount, crop.waterReduceSeconds, userId, plotIndex]
+      [newWaterCount, reductionSeconds, userId, plotIndex]
     );
 
     await syncPlotStates(conn, userId);
@@ -299,8 +316,10 @@ async function waterCrop(userId, plotIndex) {
     await conn.commit();
     return {
       plotIndex,
+      succeeded,
+      reducedSeconds: reductionSeconds,
       waterCount: updated[0].water_count,
-      waterRequired: crop.waterRequired,
+      maxWaterCount: crop.maxWaterCount,
       readyAt: updated[0].ready_at,
       state: updated[0].state,
     };
@@ -314,10 +333,12 @@ async function waterCrop(userId, plotIndex) {
 
 /** 6) 수확 (POST /api/crops/harvest) body: { plotIndex } */
 async function harvestCrop(userId, plotIndex) {
+  validatePlotIndex(plotIndex);
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
+    const playerState = await getOrCreatePlayerState(conn, userId, true);
     await syncPlotStates(conn, userId);
 
     const [plotRows] = await conn.execute(
@@ -332,14 +353,9 @@ async function harvestCrop(userId, plotIndex) {
     const crop = getCropConfig(`${plot.crop_type}_seed`);
     if (!crop) throw new ApiError(500, 'unknown_crop', '알 수 없는 작물입니다.');
 
-    const isTimeReady = plot.ready_at && new Date(plot.ready_at) <= new Date();
-    const isWaterDone = plot.water_count >= crop.waterRequired;
-
-    if (plot.state !== 'ready' && !(isTimeReady && isWaterDone)) {
+    if (plot.state !== 'ready') {
       throw new ApiError(409, 'not_ready', '아직 수확할 수 없습니다.');
     }
-
-    const playerState = await getOrCreatePlayerState(conn, userId);
 
     await conn.execute(
       'UPDATE player_state SET money = money + ? WHERE user_id = ?',

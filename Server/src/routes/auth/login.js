@@ -6,7 +6,7 @@ const { signToken } = require('../../utils/jwt');
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  sameSite: 'lax',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
   // ALB HTTPS 리스너 뒤에서 서비스하므로 운영 환경에서는 secure: true 권장
   secure: process.env.NODE_ENV === 'production',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
@@ -14,7 +14,7 @@ const COOKIE_OPTIONS = {
 
 // POST /api/auth/login
 router.post('/', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password } = req.body || {};
 
   if (!username || !password) {
     return res.status(400).json({ error: 'invalid_input', message: 'username, password를 모두 입력해주세요.' });

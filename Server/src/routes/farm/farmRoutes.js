@@ -24,7 +24,7 @@ router.get('/api/farm', requireAuth, async (req, res) => {
 // POST /api/plots/buy - 밭 구매 { plotIndex }
 router.post('/api/plots/buy', requireAuth, async (req, res) => {
   try {
-    const { plotIndex } = req.body;
+    const { plotIndex } = req.body || {};
     const result = await farmService.buyPlot(req.user.id, plotIndex);
     return res.status(200).json({ message: '밭을 구매했습니다.', ...result });
   } catch (err) {
@@ -35,7 +35,7 @@ router.post('/api/plots/buy', requireAuth, async (req, res) => {
 // POST /api/seeds/buy - 씨앗 구매 { seedType, quantity }
 router.post('/api/seeds/buy', requireAuth, async (req, res) => {
   try {
-    const { seedType, quantity } = req.body;
+    const { seedType, quantity } = req.body || {};
     const result = await farmService.buySeed(req.user.id, seedType, quantity);
     return res.status(200).json({ message: '씨앗을 구매했습니다.', ...result });
   } catch (err) {
@@ -46,7 +46,7 @@ router.post('/api/seeds/buy', requireAuth, async (req, res) => {
 // POST /api/crops/plant - 작물 심기 { plotIndex, seedType }
 router.post('/api/crops/plant', requireAuth, async (req, res) => {
   try {
-    const { plotIndex, seedType } = req.body;
+    const { plotIndex, seedType } = req.body || {};
     const result = await farmService.plantCrop(req.user.id, plotIndex, seedType);
     return res.status(200).json({ message: '작물을 심었습니다.', ...result });
   } catch (err) {
@@ -54,11 +54,11 @@ router.post('/api/crops/plant', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/crops/water - 물주기 { plotIndex }
+// POST /api/crops/water - 물주기 { plotIndex, succeeded }
 router.post('/api/crops/water', requireAuth, async (req, res) => {
   try {
-    const { plotIndex } = req.body;
-    const result = await farmService.waterCrop(req.user.id, plotIndex);
+    const { plotIndex, succeeded } = req.body || {};
+    const result = await farmService.waterCrop(req.user.id, plotIndex, succeeded);
     return res.status(200).json({ message: '물을 줬습니다.', ...result });
   } catch (err) {
     return handleError(res, err);
@@ -68,7 +68,7 @@ router.post('/api/crops/water', requireAuth, async (req, res) => {
 // POST /api/crops/harvest - 수확 { plotIndex }
 router.post('/api/crops/harvest', requireAuth, async (req, res) => {
   try {
-    const { plotIndex } = req.body;
+    const { plotIndex } = req.body || {};
     const result = await farmService.harvestCrop(req.user.id, plotIndex);
     return res.status(200).json({ message: '수확했습니다.', ...result });
   } catch (err) {

@@ -7,7 +7,7 @@ const router = express.Router();
 router.post('/', (req, res) => {
   res.clearCookie('farm_token', {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     secure: process.env.NODE_ENV === 'production',
   });
   return res.status(200).json({ message: '로그아웃 되었습니다.' });
