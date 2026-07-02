@@ -28,13 +28,43 @@ namespace FarmGame.Farm
                 return;
             }
 
-            if (gameManager.IsMinigameActive || !TryGetPointerPress(out Vector2 screenPosition))
+            bool cancelWithKeyboard = Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
+            bool cancelWithMouse = Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame;
+            if (gameManager.IsPlacingPlot && (cancelWithKeyboard || cancelWithMouse))
+            {
+                gameManager.CancelPlotPlacement();
+                return;
+            }
+
+            if (gameManager.IsInputBlocked)
             {
                 return;
             }
 
             worldCamera ??= Camera.main;
             if (worldCamera == null)
+            {
+                return;
+            }
+
+            if (gameManager.IsPlacingPlot)
+            {
+                if (TryGetPointerPosition(out Vector2 previewScreenPosition))
+                {
+                    Vector3 previewWorldPosition = worldCamera.ScreenToWorldPoint(previewScreenPosition);
+                    gameManager.UpdatePlotPlacementPreview(new Vector2(previewWorldPosition.x, previewWorldPosition.y));
+                }
+
+                if (TryGetPointerPress(out Vector2 placementScreenPosition))
+                {
+                    Vector3 placementWorldPosition = worldCamera.ScreenToWorldPoint(placementScreenPosition);
+                    gameManager.TryPlacePlotAt(new Vector2(placementWorldPosition.x, placementWorldPosition.y));
+                }
+
+                return;
+            }
+
+            if (!TryGetPointerPress(out Vector2 screenPosition))
             {
                 return;
             }
@@ -56,6 +86,24 @@ namespace FarmGame.Farm
             }
 
             if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame)
+            {
+                position = Touchscreen.current.primaryTouch.position.ReadValue();
+                return true;
+            }
+
+            position = default;
+            return false;
+        }
+
+        private static bool TryGetPointerPosition(out Vector2 position)
+        {
+            if (Mouse.current != null)
+            {
+                position = Mouse.current.position.ReadValue();
+                return true;
+            }
+
+            if (Touchscreen.current != null)
             {
                 position = Touchscreen.current.primaryTouch.position.ReadValue();
                 return true;

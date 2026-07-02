@@ -18,6 +18,9 @@ namespace FarmGame.Data
         public int x;
         public int y;
         public bool purchased;
+        public bool hasWorldPosition;
+        public float worldX;
+        public float worldY;
         public string cropId;
         public int waterCount;
         public long plantedAtUtc;
@@ -62,7 +65,7 @@ namespace FarmGame.Data
     [Serializable]
     public sealed class PlayerSaveData
     {
-        public int schemaVersion = 1;
+        public int schemaVersion = 2;
         public int money = 500;
         public int totalWheatHarvested;
         public List<FarmCellState> cells = new();

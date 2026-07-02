@@ -62,7 +62,9 @@ namespace FarmGame.Editor
 
             FarmHud hud = BuildHud(uiRoot.transform);
             WateringMinigame minigame = BuildWateringMinigame(uiRoot.transform);
-            manager.Configure(wheat, cells.ToArray(), hud, minigame);
+            FarmShopPanel shop = FarmShopPanel.Create(uiRoot.transform);
+            FirstPlotTutorialPopup tutorialPopup = FirstPlotTutorialPopup.Create(uiRoot.transform);
+            manager.Configure(wheat, cells.ToArray(), hud, minigame, shop, tutorialPopup);
 
             FarmInputController input = new GameObject("FarmInputController").AddComponent<FarmInputController>();
             input.transform.SetParent(systems.transform);
@@ -147,6 +149,7 @@ namespace FarmGame.Editor
             pathRenderer.color = new Color(0.87f, 0.75f, 0.50f);
             pathRenderer.sortingOrder = -9;
             path.AddComponent<RuntimeSquareVisual>();
+            path.AddComponent<BoxCollider2D>();
             path.transform.position = new Vector3(2.8f, -0.15f, 0.5f);
             path.transform.localScale = new Vector3(1.1f, 7.7f, 1f);
         }
@@ -169,7 +172,7 @@ namespace FarmGame.Editor
                     SpriteRenderer soil = cellObject.AddComponent<SpriteRenderer>();
                     soil.sortingOrder = 0;
                     BoxCollider2D collider = cellObject.AddComponent<BoxCollider2D>();
-                    collider.size = new Vector2(0.96f, 0.96f);
+                    collider.size = new Vector2(1.06f, 1.12f);
 
                     SpriteRenderer crop = CreateChildRenderer(cellObject.transform, "Crop", 2);
                     SpriteRenderer accent = CreateChildRenderer(cellObject.transform, "State Accent", 3);
@@ -200,8 +203,16 @@ namespace FarmGame.Editor
             Text title = CreateText("Title", topBar.transform, "작은 밀 농장", 28, TextAnchor.MiddleCenter, Color.white);
             SetAnchored(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(280f, 54f), Vector2.zero);
 
+            GameObject coinObject = CreateImage("Coin Icon", topBar.transform, Color.white);
+            Image coinImage = coinObject.GetComponent<Image>();
+            Sprite[] coinSprites = Resources.LoadAll<Sprite>("Image/icon_coin");
+            coinImage.sprite = coinSprites.Length > 0 ? coinSprites[0] : null;
+            coinImage.preserveAspect = true;
+            coinImage.raycastTarget = false;
+            SetAnchored(coinObject.GetComponent<RectTransform>(), new Vector2(0f, 0.5f), new Vector2(36f, 36f), new Vector2(28f, 0f), new Vector2(0f, 0.5f));
+
             Text money = CreateText("Money", topBar.transform, "보유금", 25, TextAnchor.MiddleLeft, new Color(1f, 0.85f, 0.28f));
-            SetAnchored(money.rectTransform, new Vector2(0f, 0.5f), new Vector2(280f, 54f), new Vector2(28f, 0f), new Vector2(0f, 0.5f));
+            SetAnchored(money.rectTransform, new Vector2(0f, 0.5f), new Vector2(236f, 54f), new Vector2(72f, 0f), new Vector2(0f, 0.5f));
 
             Text harvest = CreateText("Harvest", topBar.transform, "밀 수확", 25, TextAnchor.MiddleRight, new Color(0.75f, 1f, 0.60f));
             SetAnchored(harvest.rectTransform, new Vector2(1f, 0.5f), new Vector2(280f, 54f), new Vector2(-28f, 0f), new Vector2(1f, 0.5f));
@@ -212,7 +223,7 @@ namespace FarmGame.Editor
             Text message = CreateText(
                 "Message",
                 messagePanel.transform,
-                "회색 밭을 눌러 시작하세요.",
+                "상점에서 밭을 골라 원하는 위치에 배치하세요.",
                 22,
                 TextAnchor.MiddleCenter,
                 Color.white);
@@ -221,7 +232,7 @@ namespace FarmGame.Editor
             Text legend = CreateText(
                 "Legend",
                 messagePanel.transform,
-                "회색: 잠김   갈색: 빈 밭   파란 표시: 물 필요   초록: 성장   노랑: 수확",
+                "상점: 자유 배치   빨강: 설치 불가   파란 표시: 물 필요   초록: 성장   노랑: 수확",
                 16,
                 TextAnchor.MiddleCenter,
                 new Color(0.80f, 0.86f, 0.80f));
