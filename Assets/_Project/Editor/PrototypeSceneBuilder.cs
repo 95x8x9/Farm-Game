@@ -19,6 +19,7 @@ namespace FarmGame.Editor
         private const string ScenePath = ProjectRoot + "/Scenes/FarmScene.unity";
         private const string WheatPath = ProjectRoot + "/Data/Crops/Wheat.asset";
         private const string KoreanFontPath = "Fonts/NotoSansKR-VF";
+        private const string ProgressBarAssetRoot = ProjectRoot + "/Resources/ProgressBar";
 
         [MenuItem("Farm Game/Prototype/Rebuild Farm Scene")]
         public static void BuildFromMenu()
@@ -35,6 +36,7 @@ namespace FarmGame.Editor
         private static void Build()
         {
             EnsureFolders();
+            EnsureProgressBarImportSettings();
             CropDefinition wheat = CreateOrUpdateWheat();
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -245,20 +247,36 @@ namespace FarmGame.Editor
 
         private static WateringMinigame BuildWateringMinigame(Transform parent)
         {
-            GameObject panel = CreateImage("Watering Minigame", parent, new Color(0.04f, 0.07f, 0.10f, 0.97f));
+            GameObject panel = CreateImage("Watering Minigame", parent, new Color(0.12f, 0.09f, 0.06f, 0.97f));
             SetAnchored(panel.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(650f, 250f), Vector2.zero);
 
             Text heading = CreateText("Heading", panel.transform, "물주기 타이밍", 30, TextAnchor.MiddleCenter, new Color(0.55f, 0.85f, 1f));
             SetAnchored(heading.rectTransform, new Vector2(0.5f, 1f), new Vector2(500f, 50f), new Vector2(0f, -42f), new Vector2(0.5f, 1f));
 
-            GameObject track = CreateImage("Track", panel.transform, new Color(0.22f, 0.25f, 0.28f));
-            SetAnchored(track.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(520f, 42f), new Vector2(0f, 5f));
+            GameObject track = CreateImage("Track", panel.transform, Color.white);
+            Image trackImage = track.GetComponent<Image>();
+            trackImage.sprite = LoadProgressBarSprite("progressbar-track.png");
+            trackImage.raycastTarget = false;
+            SetAnchored(track.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(520f, 54f), new Vector2(0f, 5f));
 
-            GameObject success = CreateImage("Success Zone", track.transform, new Color(0.20f, 0.78f, 0.35f));
-            SetAnchored(success.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(146f, 42f), Vector2.zero);
+            GameObject success = CreateImage("Success Zone", track.transform, Color.white);
+            Image successImage = success.GetComponent<Image>();
+            successImage.sprite = LoadProgressBarSprite("progressbar-fill.png");
+            successImage.raycastTarget = false;
+            SetAnchored(success.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(146f, 54f), Vector2.zero);
 
-            GameObject marker = CreateImage("Marker", track.transform, new Color(1f, 0.86f, 0.15f));
-            SetAnchored(marker.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(12f, 68f), new Vector2(-260f, 0f));
+            GameObject frame = CreateImage("Frame", track.transform, Color.white);
+            Image frameImage = frame.GetComponent<Image>();
+            frameImage.sprite = LoadProgressBarSprite("progressbar-frame.png");
+            frameImage.raycastTarget = false;
+            SetAnchored(frame.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(548f, 90f), Vector2.zero);
+
+            GameObject marker = CreateImage("Marker", track.transform, Color.white);
+            Image markerImage = marker.GetComponent<Image>();
+            markerImage.sprite = LoadProgressBarSprite("progressbar-handle.png");
+            markerImage.preserveAspect = true;
+            markerImage.raycastTarget = false;
+            SetAnchored(marker.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(30f, 92f), new Vector2(-222f, 0f));
 
             Text result = CreateText("Result", panel.transform, "초록 영역에서 클릭 또는 Space", 20, TextAnchor.MiddleCenter, Color.white);
             SetAnchored(result.rectTransform, new Vector2(0.5f, 0f), new Vector2(590f, 64f), new Vector2(0f, 38f), new Vector2(0.5f, 0f));
@@ -266,6 +284,39 @@ namespace FarmGame.Editor
             WateringMinigame minigame = parent.gameObject.AddComponent<WateringMinigame>();
             minigame.Configure(panel, marker.GetComponent<RectTransform>(), result);
             return minigame;
+        }
+
+        private static Sprite LoadProgressBarSprite(string fileName)
+        {
+            return AssetDatabase.LoadAssetAtPath<Sprite>($"{ProgressBarAssetRoot}/{fileName}");
+        }
+
+        private static void EnsureProgressBarImportSettings()
+        {
+            string[] fileNames =
+            {
+                "progressbar-frame.png",
+                "progressbar-fill.png",
+                "progressbar-track.png",
+                "progressbar-handle.png"
+            };
+
+            foreach (string fileName in fileNames)
+            {
+                string assetPath = $"{ProgressBarAssetRoot}/{fileName}";
+                if (AssetImporter.GetAtPath(assetPath) is not TextureImporter importer)
+                {
+                    continue;
+                }
+
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.filterMode = FilterMode.Point;
+                importer.textureCompression = TextureImporterCompression.Uncompressed;
+                importer.mipmapEnabled = false;
+                importer.alphaIsTransparency = true;
+                importer.SaveAndReimport();
+            }
         }
 
         private static GameObject CreateImage(string name, Transform parent, Color color)
