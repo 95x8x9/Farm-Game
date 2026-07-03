@@ -36,6 +36,12 @@ namespace FarmGame.Farm
                 return;
             }
 
+            if (gameManager.IsPlantingCrop && (cancelWithKeyboard || cancelWithMouse))
+            {
+                gameManager.CancelCropPlanting();
+                return;
+            }
+
             if (gameManager.IsInputBlocked)
             {
                 return;
