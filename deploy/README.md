@@ -48,3 +48,7 @@ bash deploy/update-server.sh
 
 Run the same command on both `farm-web1` and `farm-web2`. Set `SERVER_NAME`
 appropriately in each server's `/etc/farm-game.env`.
+
+WebGL files are copied into a versioned directory below
+`/var/www/farm-game-releases` and then published by atomically switching the
+`/var/www/farm-game-current` symlink. The latest three releases are retained.
