@@ -16,6 +16,7 @@ namespace FarmGame.Core
         private const int WaterFailReductionSeconds = 30;
 
         [SerializeField] private CropDefinition wheat;
+        [SerializeField] private CropDefinition[] crops;
         [SerializeField] private FarmCellView[] cellViews;
         [SerializeField] private FarmHud hud;
         [SerializeField] private WateringMinigame wateringMinigame;
@@ -36,9 +37,12 @@ namespace FarmGame.Core
         private Vector2 placementPreviewPosition;
         private FarmCellState placementCell;
         private FarmCellView placementPreviewView;
+        private CropDefinition selectedCropForPlanting;
+        private CropDefinition potato;
 
         public bool IsMinigameActive => wateringMinigame != null && wateringMinigame.IsPlaying;
         public bool IsPlacingPlot => isPlacingPlot;
+        public bool IsPlantingCrop => selectedCropForPlanting != null;
         public bool IsInputBlocked => IsMinigameActive
             || (shopPanel != null && shopPanel.IsOpen)
             || (firstPlotTutorialPopup != null && firstPlotTutorialPopup.IsVisible)
@@ -53,6 +57,7 @@ namespace FarmGame.Core
             FirstPlotTutorialPopup tutorialPopup)
         {
             wheat = wheatDefinition;
+            crops = wheatDefinition == null ? new CropDefinition[0] : new[] { wheatDefinition };
             cellViews = views;
             hud = hudReference;
             wateringMinigame = minigame;
@@ -64,13 +69,14 @@ namespace FarmGame.Core
         {
             repository = new PlayerPrefsGameRepository();
             timeProvider = new SystemTimeProvider();
+            EnsureCropCatalog();
             Canvas canvas = FindFirstObjectByType<Canvas>();
             if (shopPanel == null && canvas != null)
             {
                 shopPanel = FarmShopPanel.Create(canvas.transform);
             }
 
-            shopPanel?.Initialize(BeginPlotPlacement, HandleShopVisibilityChanged);
+            shopPanel?.Initialize(BeginPlotPlacement, BeginCropPlanting, HandleShopVisibilityChanged);
             if (firstPlotTutorialPopup == null)
             {
                 if (canvas != null)
@@ -133,13 +139,28 @@ namespace FarmGame.Core
                 return;
             }
 
-            switch (cell.GetStatus(wheat, timeProvider.UtcNowSeconds))
+            CropDefinition crop = GetCropDefinition(cell.cropId) ?? wheat;
+            FarmCellStatus status = cell.GetStatus(crop, timeProvider.UtcNowSeconds);
+            if (selectedCropForPlanting != null && status != FarmCellStatus.Empty)
+            {
+                hud.SetMessage("작물을 심을 빈 밭을 선택하세요.");
+                return;
+            }
+
+            switch (status)
             {
                 case FarmCellStatus.Locked:
                     hud.SetMessage("밭은 상점 탭에서 구매할 수 있습니다.");
                     break;
                 case FarmCellStatus.Empty:
-                    PlantWheat(cell);
+                    if (selectedCropForPlanting == null)
+                    {
+                        hud.SetMessage("상점에서 심을 작물을 먼저 선택하세요.");
+                    }
+                    else
+                    {
+                        PlantCrop(cell, selectedCropForPlanting);
+                    }
                     break;
                 case FarmCellStatus.NeedsWater:
                     BeginWatering(cell);
@@ -216,12 +237,24 @@ namespace FarmGame.Core
             firstPlotTutorialPopup?.Hide();
             shopPanel?.Close();
             isPlacingPlot = false;
+            selectedCropForPlanting = null;
             ClearPlacementPreview();
             repository.Delete();
             saveData = CreateNewSave();
             Save();
             RefreshAll();
             hud.SetMessage("새 농장으로 초기화했습니다. 상점에서 밭을 골라 시작하세요.");
+        }
+
+        public void CancelCropPlanting()
+        {
+            if (selectedCropForPlanting == null)
+            {
+                return;
+            }
+
+            selectedCropForPlanting = null;
+            hud.SetMessage("작물 심기를 취소했습니다.");
         }
 
         private void HandleFirstPlotTutorialDismissed(bool purchaseRequested)
@@ -239,6 +272,7 @@ namespace FarmGame.Core
         private void OpenShop()
         {
             isPlacingPlot = false;
+            selectedCropForPlanting = null;
             ClearPlacementPreview();
             shopPanel?.Open();
             RefreshAll();
@@ -252,6 +286,7 @@ namespace FarmGame.Core
 
         private void BeginPlotPlacement()
         {
+            selectedCropForPlanting = null;
             if (saveData.money < PlotPrice)
             {
                 hud.SetMessage($"밭 구매에는 {PlotPrice}원이 필요합니다.");
@@ -274,6 +309,29 @@ namespace FarmGame.Core
             canPlaceAtPreviewPosition = false;
             RefreshAll();
             hud.SetMessage("빈 공간으로 밭을 옮긴 뒤 클릭해 설치하세요. 빨간색은 설치 불가 위치입니다.");
+        }
+
+        private void BeginCropPlanting(string cropId)
+        {
+            CropDefinition crop = GetCropDefinition(cropId);
+            if (crop == null)
+            {
+                hud.SetMessage("아직 판매 준비 중인 작물입니다.");
+                return;
+            }
+
+            if (saveData.money < crop.SeedPrice)
+            {
+                hud.SetMessage($"{crop.DisplayName} 씨앗에는 {crop.SeedPrice}원이 필요합니다.");
+                return;
+            }
+
+            isPlacingPlot = false;
+            ClearPlacementPreview();
+            selectedCropForPlanting = crop;
+            shopPanel?.Close();
+            inputBlockThroughFrame = Time.frameCount;
+            hud.SetMessage($"빈 밭을 클릭해 {crop.DisplayName}을(를) 심으세요. 우클릭 또는 Esc로 취소할 수 있습니다.");
         }
 
         private bool CanPlacePlotAt(Vector2 worldPosition)
@@ -311,22 +369,23 @@ namespace FarmGame.Core
             placementPreviewView = null;
         }
 
-        private void PlantWheat(FarmCellState cell)
+        private void PlantCrop(FarmCellState cell, CropDefinition crop)
         {
-            if (saveData.money < wheat.SeedPrice)
+            if (crop == null || saveData.money < crop.SeedPrice)
             {
-                hud.SetMessage($"밀 씨앗에는 {wheat.SeedPrice}원이 필요합니다.");
+                selectedCropForPlanting = null;
+                hud.SetMessage($"씨앗에는 {crop?.SeedPrice ?? 0}원이 필요합니다.");
                 return;
             }
 
-            saveData.money -= wheat.SeedPrice;
+            saveData.money -= crop.SeedPrice;
             long now = timeProvider.UtcNowSeconds;
-            cell.cropId = wheat.CropId;
+            cell.cropId = crop.CropId;
             cell.waterCount = 0;
             cell.plantedAtUtc = now;
             cell.growthStartedAtUtc = now;
-            cell.readyAtUtc = now + wheat.GrowthSeconds;
-            Commit($"밀을 심었습니다. 물을 안 줘도 자라며, 물주기는 최대 {GetMaxWaterCount()}번 가능합니다. (-{wheat.SeedPrice}원)");
+            cell.readyAtUtc = now + crop.GrowthSeconds;
+            Commit($"{crop.DisplayName}을(를) 심었습니다. 계속 빈 밭을 클릭해 심을 수 있습니다. 우클릭 또는 Esc로 종료하세요. (-{crop.SeedPrice}원)");
         }
 
         private void BeginWatering(FarmCellState cell)
@@ -344,7 +403,8 @@ namespace FarmGame.Core
                 return;
             }
 
-            int maxWaterCount = GetMaxWaterCount();
+            CropDefinition crop = GetCropDefinition(cell.cropId) ?? wheat;
+            int maxWaterCount = GetMaxWaterCount(crop);
             if (cell.waterCount >= maxWaterCount)
             {
                 ShowRemainingTime(cell);
@@ -374,14 +434,18 @@ namespace FarmGame.Core
 
         private void Harvest(FarmCellState cell)
         {
-            saveData.money += wheat.SellPrice;
-            saveData.totalWheatHarvested++;
+            CropDefinition crop = GetCropDefinition(cell.cropId) ?? wheat;
+            saveData.money += crop.SellPrice;
+            if (crop.CropId == wheat.CropId)
+            {
+                saveData.totalWheatHarvested++;
+            }
             cell.ClearCrop();
 
             string unlockHint = saveData.totalWheatHarvested == 5
                 ? "  밀 5회 수확 달성! 다음 단계에서 2×2 작업을 해금할 수 있습니다."
                 : string.Empty;
-            Commit($"밀을 수확해 {wheat.SellPrice}원을 벌었습니다!{unlockHint}");
+            Commit($"{crop.DisplayName}을(를) 수확해 {crop.SellPrice}원을 벌었습니다!{unlockHint}");
         }
 
         private void Commit(string message)
@@ -428,7 +492,7 @@ namespace FarmGame.Core
                     view.SetWorldPosition(state.worldX, state.worldY);
                 }
 
-                view.Refresh(state, wheat, now);
+                view.Refresh(state, GetCropDefinition(state.cropId) ?? wheat, now);
             }
 
             if (isPlacingPlot && placementPreviewView != null && hasPlacementPreviewPosition)
@@ -437,7 +501,12 @@ namespace FarmGame.Core
             }
 
             hud.Refresh(saveData.money, saveData.totalWheatHarvested);
-            shopPanel?.Refresh(PlotPrice, saveData.money, saveData.cells.Count(cell => !cell.purchased));
+            shopPanel?.Refresh(
+                PlotPrice,
+                wheat.SeedPrice,
+                potato.SeedPrice,
+                saveData.money,
+                saveData.cells.Count(cell => !cell.purchased));
         }
 
         private PlayerSaveData CreateNewSave()
@@ -487,15 +556,48 @@ namespace FarmGame.Core
                 long startedAt = cell.plantedAtUtc > 0 ? cell.plantedAtUtc : now;
                 cell.plantedAtUtc = startedAt;
                 cell.growthStartedAtUtc = startedAt;
-                cell.readyAtUtc = startedAt + wheat.GrowthSeconds;
+                CropDefinition crop = GetCropDefinition(cell.cropId) ?? wheat;
+                cell.readyAtUtc = startedAt + crop.GrowthSeconds;
             }
 
             saveData.schemaVersion = 2;
         }
 
-        private int GetMaxWaterCount()
+        private static int GetMaxWaterCount(CropDefinition crop)
         {
-            return FarmCellState.GetMaxWaterCount(wheat);
+            return FarmCellState.GetMaxWaterCount(crop);
+        }
+
+        private CropDefinition GetCropDefinition(string cropId)
+        {
+            if (string.IsNullOrEmpty(cropId))
+            {
+                return null;
+            }
+
+            CropDefinition crop = crops?.FirstOrDefault(candidate => candidate != null && candidate.CropId == cropId);
+            return crop ?? (wheat != null && wheat.CropId == cropId ? wheat : null);
+        }
+
+        private void EnsureCropCatalog()
+        {
+            List<CropDefinition> catalog = crops?
+                .Where(candidate => candidate != null)
+                .ToList() ?? new List<CropDefinition>();
+
+            if (wheat != null && catalog.All(candidate => candidate.CropId != wheat.CropId))
+            {
+                catalog.Add(wheat);
+            }
+
+            potato = catalog.FirstOrDefault(candidate => candidate.CropId == "potato");
+            if (potato == null)
+            {
+                potato = CropDefinition.CreateRuntime("potato", "감자", 20, 35, 90, 2);
+                catalog.Add(potato);
+            }
+
+            crops = catalog.ToArray();
         }
 
         private FarmCellState FindCell(int x, int y)

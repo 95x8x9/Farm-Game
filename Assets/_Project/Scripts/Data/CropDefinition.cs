@@ -19,6 +19,24 @@ namespace FarmGame.Data
         public int GrowthSeconds => growthSeconds;
         public int RequiredWaterCount => requiredWaterCount;
 
+        public static CropDefinition CreateRuntime(
+            string id,
+            string cropDisplayName,
+            int buyPrice,
+            int harvestPrice,
+            int seconds,
+            int waterCount)
+        {
+            CropDefinition definition = CreateInstance<CropDefinition>();
+            definition.cropId = id;
+            definition.displayName = cropDisplayName;
+            definition.seedPrice = buyPrice;
+            definition.sellPrice = harvestPrice;
+            definition.growthSeconds = seconds;
+            definition.requiredWaterCount = waterCount;
+            return definition;
+        }
+
 #if UNITY_EDITOR
         public void Configure(
             string id,
