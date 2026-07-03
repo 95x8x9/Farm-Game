@@ -1,0 +1,19 @@
+[Unit]
+Description=Farm Game Node API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=farmgame
+Group=farmgame
+WorkingDirectory=/opt/farm-game/repo/Server
+EnvironmentFile=/etc/farm-game.env
+ExecStart=/usr/bin/node src/server.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
