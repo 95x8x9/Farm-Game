@@ -31,15 +31,22 @@ try {
         throw "Could not merge origin/main into $Branch."
     }
 
-    & $unityExe `
-        -batchmode -quit `
-        -projectPath $repoRoot `
-        -executeMethod FarmGame.Editor.WebBuildCommand.BuildRelease `
-        -logFile (Join-Path $repoRoot "Logs\web-build.log")
+    $unityArgs = @(
+        "-batchmode",
+        "-quit",
+        "-projectPath", $repoRoot,
+        "-executeMethod", "FarmGame.Editor.WebBuildCommand.BuildRelease",
+        "-logFile", (Join-Path $repoRoot "Logs\web-build.log")
+    )
+    $unityProcess = Start-Process -FilePath $unityExe -ArgumentList $unityArgs -Wait -PassThru
 
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path (Join-Path $buildOutput "index.html"))) {
+    if ($unityProcess.ExitCode -ne 0 -or -not (Test-Path (Join-Path $buildOutput "index.html"))) {
         throw "Unity WebGL build failed. Check Logs/web-build.log."
     }
+
+    # Unity may toggle editor-only project settings during a headless build.
+    # The worktree was verified clean above, so these are safe to restore.
+    git restore -- ProjectSettings/ProjectSettings.asset ProjectSettings/UnityConnectSettings.asset
 
     New-Item -ItemType Directory -Force -Path $deployWeb | Out-Null
     $resolvedDeployWeb = (Resolve-Path $deployWeb).Path
