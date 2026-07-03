@@ -355,6 +355,12 @@ namespace FarmGame.Core
             int reductionSeconds = succeeded ? WaterSuccessReductionSeconds : WaterFailReductionSeconds;
             cell.readyAtUtc = System.Math.Max(now, cell.readyAtUtc - reductionSeconds);
 
+            FarmCellView wateredView = FindView(cell.x, cell.y);
+            if (wateredView != null)
+            {
+                WateringEffect.Play(wateredView.transform.position, succeeded);
+            }
+
             string result = succeeded ? "성공" : "실패";
             long remainingSeconds = System.Math.Max(0, cell.readyAtUtc - now);
             Commit($"물주기 {result}! 성장 시간이 {reductionSeconds}초 줄었습니다. ({cell.waterCount}/{maxWaterCount}, 남은 시간 약 {remainingSeconds}초)");
