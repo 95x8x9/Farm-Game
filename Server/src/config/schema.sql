@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS plots (
   water_count INT NOT NULL DEFAULT 0,
   ready_at    DATETIME NULL,             -- 추가 컬럼: 수확 가능 예정 시각
   state       ENUM('empty', 'growing', 'ready') NOT NULL DEFAULT 'empty',
+  world_x     FLOAT NULL,                -- 자유 배치 월드 좌표 (NULL이면 기본 그리드 위치)
+  world_y     FLOAT NULL,
   UNIQUE KEY uniq_user_plot (user_id, plot_index),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
