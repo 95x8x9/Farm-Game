@@ -23,7 +23,6 @@ namespace FarmGame.UI
         [SerializeField] private Text registerToggleLabel;
         [SerializeField] private Text statusText;
         [SerializeField] private GameObject logoutButton;
-        [SerializeField] private Text logoutLabel;
 
         private FarmApiClient api;
         private Action<string> messageSink;
@@ -96,16 +95,13 @@ namespace FarmGame.UI
             status.fontStyle = FontStyle.Bold;
             SetAnchored(status.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(420f, 24f), new Vector2(0f, -63f));
 
-            // 로그인 후 표시되는 로그아웃 버튼 (상단바 오른쪽 아래)
-            Button logout = CreateButton(parent, "Logout Button", Vector2.zero, new Vector2(118f, 50f), LoadFirstSprite("Image/btn_login"), Color.white);
+            // 로그인 후 표시되는 로그아웃 버튼 (상단바 오른쪽 아래, 문 아이콘만 사용)
+            Button logout = CreateButton(parent, "Logout Button", Vector2.zero, new Vector2(108f, 46f), LoadFirstSprite("Image/btn_login"), Color.white);
             RectTransform logoutRect = (RectTransform)logout.transform;
             logoutRect.anchorMin = new Vector2(1f, 1f);
             logoutRect.anchorMax = new Vector2(1f, 1f);
             logoutRect.pivot = new Vector2(1f, 1f);
             logoutRect.anchoredPosition = new Vector2(-14f, -88f);
-            Text logoutText = CreateText("Label", logout.transform, "로그아웃", 15, TextAnchor.MiddleCenter, new Color(0.05f, 0.10f, 0.03f));
-            logoutText.fontStyle = FontStyle.Bold;
-            SetAnchored(logoutText.rectTransform, new Vector2(0.5f, 0f), new Vector2(118f, 22f), new Vector2(0f, 2f), new Vector2(0.5f, 0f));
             logout.gameObject.SetActive(false);
 
             LoginPanel loginPanel = parent.gameObject.AddComponent<LoginPanel>();
@@ -117,7 +113,6 @@ namespace FarmGame.UI
             loginPanel.registerToggleLabel = registerLabel;
             loginPanel.statusText = status;
             loginPanel.logoutButton = logout.gameObject;
-            loginPanel.logoutLabel = logoutText;
             loginPanel.SetMode(AuthMode.Login, string.Empty);
 
             loginButton.onClick.AddListener(loginPanel.HandlePrimaryActionClicked);
