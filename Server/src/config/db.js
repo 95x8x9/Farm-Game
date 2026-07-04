@@ -1,3 +1,5 @@
+require('./env');
+
 const mysql = require('mysql2/promise');
 
 /**
@@ -11,12 +13,13 @@ const useSSL = process.env.DB_SSL === 'true';
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || '127.0.0.1',
-  port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USER || 'farm_app',
+  port: Number(process.env.DB_PORT || 3306),
+  user: process.env.DB_USER || 'farm',
   password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'cloud_farm',
+  database: process.env.DB_NAME || 'farmdb',
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
+  connectTimeout: Number(process.env.DB_CONNECT_TIMEOUT_MS || 10000),
   ssl: useSSL ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } : undefined,
 });
 

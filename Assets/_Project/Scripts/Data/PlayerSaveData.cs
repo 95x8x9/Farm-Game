@@ -66,7 +66,7 @@ namespace FarmGame.Data
     public sealed class PlayerSaveData
     {
         public int schemaVersion = 2;
-        public int money = 500;
+        public int money = 510;
         public int totalWheatHarvested;
         public List<FarmCellState> cells = new();
         public long lastSavedAtUtc;
