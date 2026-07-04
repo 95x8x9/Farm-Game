@@ -22,6 +22,7 @@ namespace FarmGame.Core
         [SerializeField] private WateringMinigame wateringMinigame;
         [SerializeField] private FarmShopPanel shopPanel;
         [SerializeField] private FirstPlotTutorialPopup firstPlotTutorialPopup;
+        [SerializeField] private LoginPanel loginPanel;
         // 픽셀 배경(bg_farm_pixel)의 흙밭 스트립(x -4.0~3.8)에서 밭 절반 크기만큼 안쪽으로 들어온 영역.
         private static readonly Rect PixelFieldPlacementBounds = new(-3.3f, -2.6f, 6.4f, 5.55f);
 
@@ -51,6 +52,7 @@ namespace FarmGame.Core
         public bool IsInputBlocked => IsMinigameActive
             || (shopPanel != null && shopPanel.IsOpen)
             || (firstPlotTutorialPopup != null && firstPlotTutorialPopup.IsVisible)
+            || (loginPanel != null && loginPanel.IsVisible)
             || Time.frameCount <= inputBlockThroughFrame;
 
         public void Configure(
@@ -98,6 +100,13 @@ namespace FarmGame.Core
             {
                 saveData = CreateNewSave();
             }
+
+            if (loginPanel == null && canvas != null)
+            {
+                loginPanel = LoginPanel.Create(canvas.transform);
+            }
+
+            loginPanel?.Initialize(message => hud.SetMessage(message));
 
             RepairCellCollection();
             RefreshAll();
