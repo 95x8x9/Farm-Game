@@ -48,6 +48,7 @@ install -m 0644 \
   "${APP_DIR}/deploy/apache/farm-game.conf" \
   /etc/httpd/conf.d/farm-game.conf
 rm -f /etc/httpd/conf.d/farm-game-api.conf
+rm -f /etc/httpd/conf.d/cloud-farm-api.conf
 
 install -m 0644 \
   "${APP_DIR}/deploy/systemd/farm-game.service" \
