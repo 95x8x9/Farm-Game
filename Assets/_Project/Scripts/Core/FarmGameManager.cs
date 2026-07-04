@@ -425,6 +425,7 @@ namespace FarmGame.Core
             cell.ClearCrop();
             isRemovingPlot = false;
             Commit("밭을 삭제했습니다. (환급 0원)");
+            SyncDeletePlot(cell);
         }
 
         private void BeginPlotPlacement()
@@ -610,7 +611,17 @@ namespace FarmGame.Core
                 return;
             }
 
-            apiClient.BuyPlot(ToPlotIndex(cell), (ok, message) => ReportSyncFailure(ok, "밭 구매", message));
+            apiClient.BuyPlot(ToPlotIndex(cell), cell.worldX, cell.worldY, (ok, message) => ReportSyncFailure(ok, "밭 구매", message));
+        }
+
+        private void SyncDeletePlot(FarmCellState cell)
+        {
+            if (!IsServerSyncEnabled || cell == null)
+            {
+                return;
+            }
+
+            apiClient.DeletePlot(ToPlotIndex(cell), (ok, message) => ReportSyncFailure(ok, "밭 삭제", message));
         }
 
         private void SyncPlantCrop(FarmCellState cell, CropDefinition crop)
@@ -703,6 +714,13 @@ namespace FarmGame.Core
                     }
 
                     cell.purchased = true;
+                    if (plot.has_position != 0)
+                    {
+                        cell.hasWorldPosition = true;
+                        cell.worldX = plot.world_x;
+                        cell.worldY = plot.world_y;
+                    }
+
                     if (string.IsNullOrEmpty(plot.crop_type) || plot.state == "empty")
                     {
                         continue;

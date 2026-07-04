@@ -28,6 +28,9 @@ namespace FarmGame.Net
         public int water_count;
         public string ready_at;
         public string state;
+        public float world_x;
+        public float world_y;
+        public int has_position;
     }
 
     /// <summary>
@@ -163,11 +166,18 @@ namespace FarmGame.Net
             }));
         }
 
-        public void BuyPlot(int plotIndex, Action<bool, string> onCompleted)
+        public void BuyPlot(int plotIndex, float worldX, float worldY, Action<bool, string> onCompleted)
         {
-            string json = JsonUtility.ToJson(new PlotRequest { plotIndex = plotIndex });
+            string json = JsonUtility.ToJson(new PlotBuyRequest { plotIndex = plotIndex, worldX = worldX, worldY = worldY });
             StartCoroutine(SendJson("POST", "/api/plots/buy", json, true,
                 (success, body) => onCompleted?.Invoke(success, success ? "ok" : ExtractErrorMessage(body, "밭 구매를 서버에 반영하지 못했습니다."))));
+        }
+
+        public void DeletePlot(int plotIndex, Action<bool, string> onCompleted)
+        {
+            string json = JsonUtility.ToJson(new PlotRequest { plotIndex = plotIndex });
+            StartCoroutine(SendJson("POST", "/api/plots/delete", json, true,
+                (success, body) => onCompleted?.Invoke(success, success ? "ok" : ExtractErrorMessage(body, "밭 삭제를 서버에 반영하지 못했습니다."))));
         }
 
         /// <summary>서버 규칙상 씨앗을 먼저 인벤토리에 구매한 뒤 심는다.</summary>
@@ -314,6 +324,14 @@ namespace FarmGame.Net
         private sealed class PlotRequest
         {
             public int plotIndex;
+        }
+
+        [Serializable]
+        private sealed class PlotBuyRequest
+        {
+            public int plotIndex;
+            public float worldX;
+            public float worldY;
         }
 
         [Serializable]
