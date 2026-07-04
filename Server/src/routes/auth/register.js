@@ -4,7 +4,7 @@ const router = express.Router();
 const pool = require('../../config/db');
 
 const SALT_ROUNDS = 10;
-const STARTING_MONEY = 500; // 문서 3단계: 초기 자금 500원
+const STARTING_MONEY = 510; // 초기 자금 510원
 
 // POST /api/auth/register
 router.post('/', async (req, res) => {
@@ -36,7 +36,7 @@ router.post('/', async (req, res) => {
     );
     const userId = result.insertId;
 
-    // 계정 생성과 동시에 초기 농장 상태 생성 (초기 자금 500원)
+    // 계정 생성과 동시에 초기 농장 상태 생성 (초기 자금 510원)
     await conn.query(
       'INSERT INTO player_state (user_id, money, level, wheat_harvest_count, batch_unlocked) VALUES (?, ?, 1, 0, 0)',
       [userId, STARTING_MONEY]

@@ -46,7 +46,7 @@ async function getOrCreatePlayerState(conn, userId, lockForUpdate = false) {
 
   // register.js에서 이미 만들어주지만, 방어적으로 없으면 여기서도 생성한다.
   await conn.execute(
-    'INSERT INTO player_state (user_id, money, level, wheat_harvest_count, batch_unlocked) VALUES (?, 500, 1, 0, 0)',
+    'INSERT INTO player_state (user_id, money, level, wheat_harvest_count, batch_unlocked) VALUES (?, 510, 1, 0, 0)',
     [userId]
   );
   const [created] = await conn.execute(

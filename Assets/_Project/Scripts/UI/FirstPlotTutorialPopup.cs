@@ -21,21 +21,45 @@ namespace FarmGame.UI
             GameObject overlayObject = CreateImage("First Plot Tutorial", parent, new Color(0.02f, 0.04f, 0.02f, 0.72f));
             SetStretch(overlayObject.GetComponent<RectTransform>(), 0f, 0f, 1f, 1f, 0f, 0f, 0f, 0f);
 
-            GameObject panel = CreateImage("Popup Panel", overlayObject.transform, new Color(0.96f, 0.91f, 0.73f, 1f));
+            GameObject panel = CreateImage("Popup Panel", overlayObject.transform, Color.white);
             SetAnchored(panel.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(610f, 250f), Vector2.zero);
+            Image panelImage = panel.GetComponent<Image>();
+            Sprite panelSprite = LoadFirstSprite("Image/panel_beige");
+            if (panelSprite != null)
+            {
+                panelImage.sprite = panelSprite;
+                panelImage.type = Image.Type.Sliced;
+            }
+            else
+            {
+                panelImage.color = new Color(0.96f, 0.91f, 0.73f, 1f);
+            }
 
             Text message = CreateText(
                 "Message",
                 panel.transform,
-                "상점에서 밭을 구매하고 원하는 위치에 설치해 보세요!",
-                27,
+                "상점에서 밭을 구매하고 원하는 위치에 설치해주세요!",
+                25,
                 TextAnchor.MiddleCenter,
-                new Color(0.13f, 0.20f, 0.12f));
-            SetAnchored(message.rectTransform, new Vector2(0.5f, 1f), new Vector2(550f, 100f), new Vector2(0f, -70f), new Vector2(0.5f, 1f));
+                new Color(0.13f, 0.10f, 0.05f));
+            message.fontStyle = FontStyle.Bold;
+            message.horizontalOverflow = HorizontalWrapMode.Overflow;
+            SetAnchored(message.rectTransform, new Vector2(0.5f, 1f), new Vector2(560f, 60f), new Vector2(0f, -30f), new Vector2(0.5f, 1f));
 
-            GameObject purchaseButtonObject = CreateImage("Purchase Button", panel.transform, new Color(0.24f, 0.55f, 0.20f, 1f));
+            GameObject purchaseButtonObject = CreateImage("Purchase Button", panel.transform, Color.white);
             RectTransform purchaseButtonRect = purchaseButtonObject.GetComponent<RectTransform>();
             SetAnchored(purchaseButtonRect, new Vector2(0.5f, 0f), new Vector2(360f, 72f), new Vector2(0f, 54f), new Vector2(0.5f, 0f));
+            Image purchaseImage = purchaseButtonObject.GetComponent<Image>();
+            Sprite buttonSprite = LoadFirstSprite("Image/btn_pixel_green");
+            if (buttonSprite != null)
+            {
+                purchaseImage.sprite = buttonSprite;
+                purchaseImage.type = Image.Type.Sliced;
+            }
+            else
+            {
+                purchaseImage.color = new Color(0.24f, 0.55f, 0.20f, 1f);
+            }
 
             Text buttonLabel = CreateText(
                 "Label",
@@ -43,7 +67,8 @@ namespace FarmGame.UI
                 "상점 열기",
                 24,
                 TextAnchor.MiddleCenter,
-                Color.white);
+                new Color(0.07f, 0.12f, 0.04f));
+            buttonLabel.fontStyle = FontStyle.Bold;
             SetStretch(buttonLabel.rectTransform, 0f, 0f, 1f, 1f, 12f, 6f, -12f, -6f);
 
             FirstPlotTutorialPopup popup = overlayObject.AddComponent<FirstPlotTutorialPopup>();
@@ -103,6 +128,12 @@ namespace FarmGame.UI
 
             position = default;
             return false;
+        }
+
+        private static Sprite LoadFirstSprite(string resourcePath)
+        {
+            Sprite[] sprites = Resources.LoadAll<Sprite>(resourcePath);
+            return sprites.Length > 0 ? sprites[0] : Resources.Load<Sprite>(resourcePath);
         }
 
         private static GameObject CreateImage(string name, Transform parent, Color color)
