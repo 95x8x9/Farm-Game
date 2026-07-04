@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using FarmGame.Data;
@@ -16,6 +17,8 @@ namespace FarmGame.Core
         private const int PlotPrice = 100;
         private const int WaterSuccessReductionSeconds = 60;
         private const int WaterFailReductionSeconds = 30;
+        // Server/src/config/cropConfig.js의 DEFAULT/UNLOCKED_CONCURRENT_LIMIT과 동일해야 한다.
+        private const int ServerConcurrentPlotLimit = 9;
 
         [SerializeField] private CropDefinition wheat;
         [SerializeField] private CropDefinition[] crops;
@@ -47,16 +50,18 @@ namespace FarmGame.Core
         private CropDefinition potato;
         private bool isRemovingPlot;
         private string activeSaveOwner = string.Empty;
-        private FarmApiClient apiClient;
-
-        // 로그인 상태에서만 게임 액션을 서버 DB에 반영한다 (게스트는 로컬 저장만).
-        private bool IsServerSyncEnabled => apiClient != null && apiClient.IsLoggedIn;
+        private FarmApiClient api;
+        private bool isServerBacked;
+        private bool serverRequestInFlight;
+        private bool serverBatchUnlocked;
+        private readonly Dictionary<string, int> serverInventory = new();
 
         public bool IsMinigameActive => wateringMinigame != null && wateringMinigame.IsPlaying;
         public bool IsPlacingPlot => isPlacingPlot;
         public bool IsPlantingCrop => selectedCropForPlanting != null;
         public bool IsRemovingPlot => isRemovingPlot;
         public bool IsInputBlocked => IsMinigameActive
+            || serverRequestInFlight
             || (shopPanel != null && shopPanel.IsOpen)
             || (firstPlotTutorialPopup != null && firstPlotTutorialPopup.IsVisible)
             || (loginPanel != null && loginPanel.IsVisible)
@@ -83,9 +88,9 @@ namespace FarmGame.Core
         {
             repository = new PlayerPrefsGameRepository();
             timeProvider = new SystemTimeProvider();
+            api = FarmApiClient.Ensure();
             EnsureCropCatalog();
             FarmBackdrop.Ensure();
-            apiClient = FarmApiClient.Ensure();
             // 씬에 옛 배치 범위가 직렬화되어 있을 수 있으므로 흙밭 전체 범위로 덮어쓴다.
             plotPlacementBounds = PixelFieldPlacementBounds;
             Canvas canvas = FindFirstObjectByType<Canvas>();
@@ -246,16 +251,20 @@ namespace FarmGame.Core
                 return;
             }
 
+            if (isServerBacked)
+            {
+                BuyAndPlaceServerPlot(placementCell, worldPosition);
+                return;
+            }
+
             saveData.money -= PlotPrice;
             placementCell.purchased = true;
             placementCell.hasWorldPosition = true;
             placementCell.worldX = worldPosition.x;
             placementCell.worldY = worldPosition.y;
-            FarmCellState purchasedCell = placementCell;
             isPlacingPlot = false;
             ClearPlacementPreview();
             Commit($"선택한 위치에 밭을 설치했습니다! 다시 누르면 밀 씨앗을 심습니다. (-{PlotPrice}원)");
-            SyncBuyPlot(purchasedCell);
             shopPanel?.Open();
         }
 
@@ -274,6 +283,12 @@ namespace FarmGame.Core
 
         public void ResetProgress()
         {
+            if (isServerBacked)
+            {
+                hud.SetMessage("로그인 계정의 농장은 서버에 저장되어 초기화할 수 없습니다.");
+                return;
+            }
+
             firstPlotTutorialPopup?.Hide();
             shopPanel?.Close();
             isPlacingPlot = false;
@@ -301,11 +316,16 @@ namespace FarmGame.Core
         private void HandleSessionStarted(string username)
         {
             LoadSaveForOwner(username);
-            FetchServerFarm();
+            isServerBacked = true;
+            LoadFarmFromServer();
         }
 
         private void HandleSessionEnded()
         {
+            isServerBacked = false;
+            serverRequestInFlight = false;
+            serverInventory.Clear();
+            serverBatchUnlocked = false;
             LoadSaveForOwner(null);
         }
 
@@ -420,12 +440,18 @@ namespace FarmGame.Core
                 return;
             }
 
+            isRemovingPlot = false;
+
+            if (isServerBacked)
+            {
+                DeleteServerPlot(cell);
+                return;
+            }
+
             cell.purchased = false;
             cell.hasWorldPosition = false;
             cell.ClearCrop();
-            isRemovingPlot = false;
             Commit("밭을 삭제했습니다. (환급 0원)");
-            SyncDeletePlot(cell);
         }
 
         private void BeginPlotPlacement()
@@ -524,6 +550,19 @@ namespace FarmGame.Core
                 return;
             }
 
+            if (isServerBacked)
+            {
+                int activePlotCount = saveData.cells.Count(candidate => !string.IsNullOrEmpty(candidate.cropId));
+                if (activePlotCount >= ServerConcurrentPlotLimit)
+                {
+                    hud.SetMessage($"동시에 작업 가능한 밭은 {ServerConcurrentPlotLimit}칸입니다. 먼저 자란 작물을 수확하세요.");
+                    return;
+                }
+
+                BuySeedAndPlantOnServer(cell, crop);
+                return;
+            }
+
             saveData.money -= crop.SeedPrice;
             long now = timeProvider.UtcNowSeconds;
             cell.cropId = crop.CropId;
@@ -532,7 +571,6 @@ namespace FarmGame.Core
             cell.growthStartedAtUtc = now;
             cell.readyAtUtc = now + crop.GrowthSeconds;
             Commit($"{crop.DisplayName}을(를) 심었습니다. 계속 빈 밭을 클릭해 심을 수 있습니다. 우클릭 또는 Esc로 종료하세요. (-{crop.SeedPrice}원)");
-            SyncPlantCrop(cell, crop);
         }
 
         private void BeginWatering(FarmCellState cell)
@@ -558,6 +596,12 @@ namespace FarmGame.Core
                 return;
             }
 
+            if (isServerBacked)
+            {
+                WaterServerPlot(cell, succeeded);
+                return;
+            }
+
             cell.waterCount++;
             int reductionSeconds = succeeded ? WaterSuccessReductionSeconds : WaterFailReductionSeconds;
             cell.readyAtUtc = System.Math.Max(now, cell.readyAtUtc - reductionSeconds);
@@ -571,7 +615,6 @@ namespace FarmGame.Core
             string result = succeeded ? "성공" : "실패";
             long remainingSeconds = System.Math.Max(0, cell.readyAtUtc - now);
             Commit($"물주기 {result}! 성장 시간이 {reductionSeconds}초 줄었습니다. ({cell.waterCount}/{maxWaterCount}, 남은 시간 약 {remainingSeconds}초)");
-            SyncWaterCrop(cell, succeeded);
         }
 
         private void ShowRemainingTime(FarmCellState cell)
@@ -583,6 +626,12 @@ namespace FarmGame.Core
         private void Harvest(FarmCellState cell)
         {
             CropDefinition crop = GetCropDefinition(cell.cropId) ?? wheat;
+            if (isServerBacked)
+            {
+                HarvestServerPlot(cell, crop);
+                return;
+            }
+
             saveData.money += crop.SellPrice;
             if (crop.CropId == wheat.CropId)
             {
@@ -594,107 +643,54 @@ namespace FarmGame.Core
                 ? "  밀 5회 수확 달성! 다음 단계에서 2×2 작업을 해금할 수 있습니다."
                 : string.Empty;
             Commit($"{crop.DisplayName}을(를) 수확해 {crop.SellPrice}원을 벌었습니다!{unlockHint}");
-            SyncHarvestCrop(cell);
         }
 
-        // ===== 서버 동기화 (로그인 상태에서 게임 액션을 DB에 반영) =====
-
-        private static int ToPlotIndex(FarmCellState cell)
+        private void LoadFarmFromServer()
         {
-            return cell.y * 3 + cell.x;
-        }
-
-        private void SyncBuyPlot(FarmCellState cell)
-        {
-            if (!IsServerSyncEnabled || cell == null)
+            if (!isServerBacked || api == null)
             {
                 return;
             }
 
-            apiClient.BuyPlot(ToPlotIndex(cell), cell.worldX, cell.worldY, (ok, message) => ReportSyncFailure(ok, "밭 구매", message));
-        }
-
-        private void SyncDeletePlot(FarmCellState cell)
-        {
-            if (!IsServerSyncEnabled || cell == null)
+            serverRequestInFlight = true;
+            hud.SetMessage("서버에서 농장 정보를 불러오는 중입니다...");
+            api.GetFarm((success, message, farm) =>
             {
-                return;
-            }
-
-            apiClient.DeletePlot(ToPlotIndex(cell), (ok, message) => ReportSyncFailure(ok, "밭 삭제", message));
-        }
-
-        private void SyncPlantCrop(FarmCellState cell, CropDefinition crop)
-        {
-            if (!IsServerSyncEnabled || cell == null || crop == null)
-            {
-                return;
-            }
-
-            apiClient.PlantCrop(ToPlotIndex(cell), crop.CropId + "_seed", (ok, message) => ReportSyncFailure(ok, "심기", message));
-        }
-
-        private void SyncWaterCrop(FarmCellState cell, bool succeeded)
-        {
-            if (!IsServerSyncEnabled || cell == null)
-            {
-                return;
-            }
-
-            apiClient.WaterCrop(ToPlotIndex(cell), succeeded, (ok, message) => ReportSyncFailure(ok, "물주기", message));
-        }
-
-        private void SyncHarvestCrop(FarmCellState cell)
-        {
-            if (!IsServerSyncEnabled || cell == null)
-            {
-                return;
-            }
-
-            apiClient.HarvestCrop(ToPlotIndex(cell), (ok, message) => ReportSyncFailure(ok, "수확", message));
-        }
-
-        private void ReportSyncFailure(bool ok, string action, string message)
-        {
-            if (ok)
-            {
-                return;
-            }
-
-            Debug.LogWarning($"[FarmSync] {action} 서버 반영 실패: {message}");
-            hud.SetMessage($"서버 반영 실패({action}): {message}");
-        }
-
-        /// <summary>로그인 직후 서버 DB의 농장 상태로 로컬을 맞춘다 (서버가 원본).</summary>
-        private void FetchServerFarm()
-        {
-            if (!IsServerSyncEnabled)
-            {
-                return;
-            }
-
-            apiClient.GetFarm((ok, snapshot, message) =>
-            {
-                if (!ok || snapshot == null)
+                serverRequestInFlight = false;
+                if (!success)
                 {
-                    Debug.LogWarning($"[FarmSync] 농장 불러오기 실패: {message}");
+                    hud.SetMessage(message);
                     return;
                 }
 
-                ApplyServerFarm(snapshot);
+                ApplyServerFarm(farm);
+                Commit("서버에 저장된 농장을 불러왔습니다.");
             });
         }
 
-        private void ApplyServerFarm(FarmSnapshot snapshot)
+        private void ApplyServerFarm(FarmApiClient.FarmDataResponse farm)
         {
-            if (saveData == null)
+            if (farm == null)
             {
                 return;
             }
 
-            saveData.money = snapshot.money;
-            saveData.totalWheatHarvested = snapshot.wheat_harvest_count;
-            long now = timeProvider.UtcNowSeconds;
+            RepairCellCollection();
+            saveData.money = farm.money;
+            saveData.totalWheatHarvested = farm.wheat_harvest_count;
+            serverBatchUnlocked = farm.batch_unlocked;
+            serverInventory.Clear();
+
+            if (farm.inventory != null)
+            {
+                foreach (FarmApiClient.InventoryDto item in farm.inventory)
+                {
+                    if (item != null && !string.IsNullOrEmpty(item.item_type))
+                    {
+                        serverInventory[item.item_type] = item.quantity;
+                    }
+                }
+            }
 
             foreach (FarmCellState cell in saveData.cells)
             {
@@ -703,61 +699,249 @@ namespace FarmGame.Core
                 cell.ClearCrop();
             }
 
-            if (snapshot.plots != null)
+            if (farm.plots == null)
             {
-                foreach (FarmPlotDto plot in snapshot.plots)
-                {
-                    FarmCellState cell = FindCell(plot.plot_index % 3, plot.plot_index / 3);
-                    if (cell == null || plot.unlocked == 0)
-                    {
-                        continue;
-                    }
-
-                    cell.purchased = true;
-                    if (plot.has_position != 0)
-                    {
-                        cell.hasWorldPosition = true;
-                        cell.worldX = plot.world_x;
-                        cell.worldY = plot.world_y;
-                    }
-
-                    if (string.IsNullOrEmpty(plot.crop_type) || plot.state == "empty")
-                    {
-                        continue;
-                    }
-
-                    cell.cropId = plot.crop_type;
-                    cell.waterCount = plot.water_count;
-                    long readyAt = ParseServerTime(plot.ready_at, now);
-                    // 서버-클라이언트 시간대 차이에 대비해 상태값(state)을 우선 신뢰하고 시각은 보정한다.
-                    cell.readyAtUtc = plot.state == "ready"
-                        ? now
-                        : System.Math.Clamp(readyAt, now + 1, now + 3600);
-                    long plantedAt = ParseServerTime(plot.planted_at, now);
-                    cell.plantedAtUtc = System.Math.Min(plantedAt, cell.readyAtUtc - 1);
-                    cell.growthStartedAtUtc = cell.plantedAtUtc;
-                }
+                return;
             }
 
-            RepairCellCollection();
-            Save();
+            foreach (FarmApiClient.PlotDto plot in farm.plots)
+            {
+                if (plot == null)
+                {
+                    continue;
+                }
+
+                FarmCellState cell = FindCellByPlotIndex(plot.plot_index);
+                if (cell == null || plot.unlocked == 0)
+                {
+                    continue;
+                }
+
+                cell.purchased = true;
+                if (plot.has_position != 0)
+                {
+                    cell.hasWorldPosition = true;
+                    cell.worldX = plot.world_x;
+                    cell.worldY = plot.world_y;
+                }
+                else
+                {
+                    EnsureServerPlotPosition(cell);
+                }
+
+                if (string.IsNullOrEmpty(plot.crop_type) || plot.state == "empty")
+                {
+                    cell.ClearCrop();
+                    continue;
+                }
+
+                cell.cropId = plot.crop_type;
+                cell.waterCount = plot.water_count;
+                cell.plantedAtUtc = ParseServerTime(plot.planted_at, timeProvider.UtcNowSeconds);
+                cell.growthStartedAtUtc = cell.plantedAtUtc;
+                cell.readyAtUtc = ParseServerTime(plot.ready_at, timeProvider.UtcNowSeconds);
+                if (plot.state == "ready")
+                {
+                    cell.readyAtUtc = Math.Min(cell.readyAtUtc, timeProvider.UtcNowSeconds);
+                }
+            }
+        }
+
+        private void BuyAndPlaceServerPlot(FarmCellState cell, Vector2 worldPosition)
+        {
+            serverRequestInFlight = true;
+            hud.SetMessage("밭 구매를 서버에 저장하는 중입니다...");
+            api.BuyPlot(ToPlotIndex(cell), worldPosition.x, worldPosition.y, (success, message, response) =>
+            {
+                serverRequestInFlight = false;
+                if (!success)
+                {
+                    HandleServerMutationFailure(message);
+                    return;
+                }
+
+                saveData.money = response.money;
+                cell.purchased = true;
+                cell.hasWorldPosition = true;
+                cell.worldX = worldPosition.x;
+                cell.worldY = worldPosition.y;
+                isPlacingPlot = false;
+                ClearPlacementPreview();
+                Commit($"선택한 위치에 밭을 설치했습니다! (-{response.spent}원)");
+                shopPanel?.Open();
+            });
+        }
+
+        private void BuySeedAndPlantOnServer(FarmCellState cell, CropDefinition crop)
+        {
+            string seedType = crop.CropId + "_seed";
+            serverRequestInFlight = true;
+            hud.SetMessage($"{crop.DisplayName} 심기를 서버에 저장하는 중입니다...");
+
+            if (GetServerInventoryQuantity(seedType) > 0)
+            {
+                PlantServerSeed(cell, crop, seedType);
+                return;
+            }
+
+            api.BuySeed(seedType, 1, (success, message, response) =>
+            {
+                if (!success)
+                {
+                    serverRequestInFlight = false;
+                    HandleServerMutationFailure(message);
+                    return;
+                }
+
+                saveData.money = response.money;
+                serverInventory[seedType] = GetServerInventoryQuantity(seedType) + response.quantity;
+                PlantServerSeed(cell, crop, seedType);
+            });
+        }
+
+        private void PlantServerSeed(FarmCellState cell, CropDefinition crop, string seedType)
+        {
+            api.PlantCrop(ToPlotIndex(cell), seedType, (success, message, response) =>
+            {
+                serverRequestInFlight = false;
+                if (!success)
+                {
+                    // 구매는 성공하고 심기만 실패했을 수 있다. 인벤토리 수량은 유지해 다음 시도에 재사용한다.
+                    Save();
+                    RefreshAll();
+                    hud.SetMessage(message);
+                    return;
+                }
+
+                serverInventory[seedType] = Math.Max(0, GetServerInventoryQuantity(seedType) - 1);
+                long now = timeProvider.UtcNowSeconds;
+                cell.cropId = response.cropType;
+                cell.waterCount = 0;
+                cell.plantedAtUtc = now;
+                cell.growthStartedAtUtc = now;
+                cell.readyAtUtc = now + response.growSeconds;
+                Commit($"{crop.DisplayName}을(를) 심었습니다. (-{crop.SeedPrice}원)");
+            });
+        }
+
+        private void WaterServerPlot(FarmCellState cell, bool succeeded)
+        {
+            serverRequestInFlight = true;
+            api.WaterCrop(ToPlotIndex(cell), succeeded, (success, message, response) =>
+            {
+                serverRequestInFlight = false;
+                if (!success)
+                {
+                    HandleServerMutationFailure(message);
+                    return;
+                }
+
+                cell.waterCount = response.waterCount;
+                cell.readyAtUtc = ParseServerTime(response.readyAt, timeProvider.UtcNowSeconds);
+                if (response.state == "ready")
+                {
+                    cell.readyAtUtc = timeProvider.UtcNowSeconds;
+                }
+
+                FarmCellView wateredView = FindView(cell.x, cell.y);
+                if (wateredView != null)
+                {
+                    WateringEffect.Play(wateredView.transform.position, succeeded);
+                }
+
+                string result = succeeded ? "성공" : "실패";
+                Commit($"물주기 {result}! 서버에 반영했습니다. ({response.waterCount}/{response.maxWaterCount})");
+            });
+        }
+
+        private void HarvestServerPlot(FarmCellState cell, CropDefinition crop)
+        {
+            serverRequestInFlight = true;
+            hud.SetMessage("수확 결과를 서버에 저장하는 중입니다...");
+            api.HarvestCrop(ToPlotIndex(cell), (success, message, response) =>
+            {
+                serverRequestInFlight = false;
+                if (!success)
+                {
+                    HandleServerMutationFailure(message);
+                    return;
+                }
+
+                saveData.money = response.money;
+                saveData.totalWheatHarvested = response.wheat_harvest_count;
+                serverBatchUnlocked = response.batch_unlocked;
+                cell.ClearCrop();
+                string unlockHint = response.batch_unlocked && response.wheat_harvest_count == 5
+                    ? "  밀 5회 수확 달성! 2×2 작업이 해금되었습니다."
+                    : string.Empty;
+                Commit($"{crop.DisplayName}을(를) 수확해 {response.earned}원을 벌었습니다!{unlockHint}");
+            });
+        }
+
+        private void DeleteServerPlot(FarmCellState cell)
+        {
+            serverRequestInFlight = true;
+            hud.SetMessage("밭 삭제를 서버에 반영하는 중입니다...");
+            api.DeletePlot(ToPlotIndex(cell), (success, message, response) =>
+            {
+                serverRequestInFlight = false;
+                if (!success)
+                {
+                    HandleServerMutationFailure(message);
+                    return;
+                }
+
+                cell.purchased = false;
+                cell.hasWorldPosition = false;
+                cell.ClearCrop();
+                Commit("밭을 삭제했습니다. (환급 0원)");
+            });
+        }
+
+        private void HandleServerMutationFailure(string message)
+        {
             RefreshAll();
-            hud.SetMessage("서버에서 농장을 불러왔습니다. 이제 모든 진행이 DB에 저장됩니다.");
+            hud.SetMessage(message + " 서버 상태를 다시 확인해주세요.");
+        }
+
+        private int GetServerInventoryQuantity(string itemType)
+        {
+            return serverInventory.TryGetValue(itemType, out int quantity) ? quantity : 0;
+        }
+
+        private static int ToPlotIndex(FarmCellState cell)
+        {
+            return cell.y * 3 + cell.x;
+        }
+
+        private FarmCellState FindCellByPlotIndex(int plotIndex)
+        {
+            return plotIndex < 0 || plotIndex >= 9 ? null : FindCell(plotIndex % 3, plotIndex / 3);
+        }
+
+        private void EnsureServerPlotPosition(FarmCellState cell)
+        {
+            if (cell.hasWorldPosition)
+            {
+                return;
+            }
+
+            FarmCellView view = FindView(cell.x, cell.y);
+            if (view == null)
+            {
+                return;
+            }
+
+            Vector3 position = view.transform.position;
+            cell.hasWorldPosition = true;
+            cell.worldX = position.x;
+            cell.worldY = position.y;
         }
 
         private static long ParseServerTime(string value, long fallback)
         {
-            if (string.IsNullOrEmpty(value))
-            {
-                return fallback;
-            }
-
-            return System.DateTimeOffset.TryParse(
-                value,
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
-                out System.DateTimeOffset parsed)
-                ? parsed.ToUnixTimeSeconds()
+            return DateTimeOffset.TryParse(value, out DateTimeOffset parsed)
+                ? parsed.ToUniversalTime().ToUnixTimeSeconds()
                 : fallback;
         }
 
@@ -930,7 +1114,8 @@ namespace FarmGame.Core
             potato = catalog.FirstOrDefault(candidate => candidate.CropId == "potato");
             if (potato == null)
             {
-                potato = CropDefinition.CreateRuntime("potato", "감자", 20, 35, 90, 2);
+                // Server/src/config/cropConfig.js와 동일한 값이어야 UI 가격/시간이 서버 처리와 일치한다.
+                potato = CropDefinition.CreateRuntime("potato", "감자", 30, 60, 180, 3);
                 catalog.Add(potato);
             }
 

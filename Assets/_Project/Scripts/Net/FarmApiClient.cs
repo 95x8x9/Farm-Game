@@ -1,38 +1,11 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
 
 namespace FarmGame.Net
 {
-    /// <summary>GET /api/farm 응답 (서버가 계산한 계정별 농장 상태).</summary>
-    [Serializable]
-    public sealed class FarmSnapshot
-    {
-        public int money;
-        public int level;
-        public int wheat_harvest_count;
-        public bool batch_unlocked;
-        public List<FarmPlotDto> plots;
-    }
-
-    [Serializable]
-    public sealed class FarmPlotDto
-    {
-        public int plot_index;
-        public int unlocked;
-        public string crop_type;
-        public string planted_at;
-        public int water_count;
-        public string ready_at;
-        public string state;
-        public float world_x;
-        public float world_y;
-        public int has_position;
-    }
-
     /// <summary>
     /// Server/src의 Express API(로그인·회원가입·로그아웃·내 정보)와 통신하는 클라이언트.
     /// WebGL에서 쿠키 대신 Authorization: Bearer 헤더를 사용한다.
@@ -143,76 +116,55 @@ namespace FarmGame.Net
             }));
         }
 
-        // ===== 농장 API (게임 액션을 서버 DB에 반영) =====
-
-        public void GetFarm(Action<bool, FarmSnapshot, string> onCompleted)
+        public void GetFarm(Action<bool, string, FarmDataResponse> onCompleted)
         {
-            StartCoroutine(SendJson("GET", "/api/farm", null, true, (success, body) =>
-            {
-                if (!success)
-                {
-                    onCompleted?.Invoke(false, null, ExtractErrorMessage(body, "농장 정보를 불러오지 못했습니다."));
-                    return;
-                }
-
-                FarmSnapshot snapshot = FromJsonSafe<FarmSnapshot>(body);
-                if (snapshot == null)
-                {
-                    onCompleted?.Invoke(false, null, "농장 응답을 해석할 수 없습니다.");
-                    return;
-                }
-
-                onCompleted?.Invoke(true, snapshot, "농장 정보를 불러왔습니다.");
-            }));
+            SendAuthenticated<FarmDataResponse>("GET", "/api/farm", null, "농장 정보를 불러오지 못했습니다.", onCompleted);
         }
 
-        public void BuyPlot(int plotIndex, float worldX, float worldY, Action<bool, string> onCompleted)
+        public void BuyPlot(int plotIndex, float worldX, float worldY, Action<bool, string, BuyPlotResponse> onCompleted)
         {
             string json = JsonUtility.ToJson(new PlotBuyRequest { plotIndex = plotIndex, worldX = worldX, worldY = worldY });
-            StartCoroutine(SendJson("POST", "/api/plots/buy", json, true,
-                (success, body) => onCompleted?.Invoke(success, success ? "ok" : ExtractErrorMessage(body, "밭 구매를 서버에 반영하지 못했습니다."))));
+            SendAuthenticated<BuyPlotResponse>("POST", "/api/plots/buy", json, "밭 구매에 실패했습니다.", onCompleted);
         }
 
-        public void DeletePlot(int plotIndex, Action<bool, string> onCompleted)
+        public void DeletePlot(int plotIndex, Action<bool, string, DeletePlotResponse> onCompleted)
         {
             string json = JsonUtility.ToJson(new PlotRequest { plotIndex = plotIndex });
-            StartCoroutine(SendJson("POST", "/api/plots/delete", json, true,
-                (success, body) => onCompleted?.Invoke(success, success ? "ok" : ExtractErrorMessage(body, "밭 삭제를 서버에 반영하지 못했습니다."))));
+            SendAuthenticated<DeletePlotResponse>("POST", "/api/plots/delete", json, "밭 삭제에 실패했습니다.", onCompleted);
         }
 
-        /// <summary>서버 규칙상 씨앗을 먼저 인벤토리에 구매한 뒤 심는다.</summary>
-        public void PlantCrop(int plotIndex, string seedType, Action<bool, string> onCompleted)
+        public void BuySeed(string seedType, int quantity, Action<bool, string, BuySeedResponse> onCompleted)
         {
-            string buyJson = JsonUtility.ToJson(new SeedBuyRequest { seedType = seedType, quantity = 1 });
-            StartCoroutine(SendJson("POST", "/api/seeds/buy", buyJson, true, (buySuccess, buyBody) =>
-            {
-                if (!buySuccess)
-                {
-                    onCompleted?.Invoke(false, ExtractErrorMessage(buyBody, "씨앗 구매를 서버에 반영하지 못했습니다."));
-                    return;
-                }
-
-                string plantJson = JsonUtility.ToJson(new PlantRequest { plotIndex = plotIndex, seedType = seedType });
-                StartCoroutine(SendJson("POST", "/api/crops/plant", plantJson, true,
-                    (success, body) => onCompleted?.Invoke(success, success ? "ok" : ExtractErrorMessage(body, "심기를 서버에 반영하지 못했습니다."))));
-            }));
+            string json = JsonUtility.ToJson(new BuySeedRequest { seedType = seedType, quantity = quantity });
+            SendAuthenticated<BuySeedResponse>("POST", "/api/seeds/buy", json, "씨앗 구매에 실패했습니다.", onCompleted);
         }
 
-        public void WaterCrop(int plotIndex, bool succeeded, Action<bool, string> onCompleted)
+        public void PlantCrop(int plotIndex, string seedType, Action<bool, string, PlantCropResponse> onCompleted)
         {
-            string json = JsonUtility.ToJson(new WaterRequest { plotIndex = plotIndex, succeeded = succeeded });
-            StartCoroutine(SendJson("POST", "/api/crops/water", json, true,
-                (success, body) => onCompleted?.Invoke(success, success ? "ok" : ExtractErrorMessage(body, "물주기를 서버에 반영하지 못했습니다."))));
+            string json = JsonUtility.ToJson(new PlantCropRequest { plotIndex = plotIndex, seedType = seedType });
+            SendAuthenticated<PlantCropResponse>("POST", "/api/crops/plant", json, "작물 심기에 실패했습니다.", onCompleted);
         }
 
-        public void HarvestCrop(int plotIndex, Action<bool, string> onCompleted)
+        public void WaterCrop(int plotIndex, bool succeeded, Action<bool, string, WaterCropResponse> onCompleted)
+        {
+            string json = JsonUtility.ToJson(new WaterCropRequest { plotIndex = plotIndex, succeeded = succeeded });
+            SendAuthenticated<WaterCropResponse>("POST", "/api/crops/water", json, "물주기 저장에 실패했습니다.", onCompleted);
+        }
+
+        public void HarvestCrop(int plotIndex, Action<bool, string, HarvestCropResponse> onCompleted)
         {
             StartCoroutine(HarvestWithRetry(plotIndex, 3, onCompleted));
         }
 
         // 클라이언트와 서버의 시계가 몇 초 어긋나면 서버는 아직 not_ready일 수 있어 잠시 후 재시도한다.
-        private IEnumerator HarvestWithRetry(int plotIndex, int attemptsLeft, Action<bool, string> onCompleted)
+        private IEnumerator HarvestWithRetry(int plotIndex, int attemptsLeft, Action<bool, string, HarvestCropResponse> onCompleted)
         {
+            if (!IsLoggedIn)
+            {
+                onCompleted?.Invoke(false, "로그인이 필요합니다.", null);
+                yield break;
+            }
+
             string json = JsonUtility.ToJson(new PlotRequest { plotIndex = plotIndex });
             bool success = false;
             string responseBody = null;
@@ -224,7 +176,14 @@ namespace FarmGame.Net
 
             if (success)
             {
-                onCompleted?.Invoke(true, "ok");
+                HarvestCropResponse response = FromJsonSafe<HarvestCropResponse>(responseBody);
+                if (response == null)
+                {
+                    onCompleted?.Invoke(false, "서버 응답을 해석할 수 없습니다.", null);
+                    yield break;
+                }
+
+                onCompleted?.Invoke(true, string.Empty, response);
                 yield break;
             }
 
@@ -236,7 +195,39 @@ namespace FarmGame.Net
                 yield break;
             }
 
-            onCompleted?.Invoke(false, ExtractErrorMessage(responseBody, "수확을 서버에 반영하지 못했습니다."));
+            onCompleted?.Invoke(false, ExtractErrorMessage(responseBody, "수확 저장에 실패했습니다."), null);
+        }
+
+        private void SendAuthenticated<T>(
+            string method,
+            string path,
+            string jsonBody,
+            string fallbackMessage,
+            Action<bool, string, T> onCompleted) where T : class
+        {
+            if (!IsLoggedIn)
+            {
+                onCompleted?.Invoke(false, "로그인이 필요합니다.", null);
+                return;
+            }
+
+            StartCoroutine(SendJson(method, path, jsonBody, true, (success, body) =>
+            {
+                if (!success)
+                {
+                    onCompleted?.Invoke(false, ExtractErrorMessage(body, fallbackMessage), null);
+                    return;
+                }
+
+                T response = FromJsonSafe<T>(body);
+                if (response == null)
+                {
+                    onCompleted?.Invoke(false, "서버 응답을 해석할 수 없습니다.", null);
+                    return;
+                }
+
+                onCompleted?.Invoke(true, string.Empty, response);
+            }));
         }
 
         private void SetSession(string token, string username)
@@ -335,21 +326,21 @@ namespace FarmGame.Net
         }
 
         [Serializable]
-        private sealed class SeedBuyRequest
+        private sealed class BuySeedRequest
         {
             public string seedType;
             public int quantity;
         }
 
         [Serializable]
-        private sealed class PlantRequest
+        private sealed class PlantCropRequest
         {
             public int plotIndex;
             public string seedType;
         }
 
         [Serializable]
-        private sealed class WaterRequest
+        private sealed class WaterCropRequest
         {
             public int plotIndex;
             public bool succeeded;
@@ -381,6 +372,95 @@ namespace FarmGame.Net
         {
             public string error;
             public string message;
+        }
+
+        [Serializable]
+        public sealed class FarmDataResponse
+        {
+            public int money;
+            public int level;
+            public int wheat_harvest_count;
+            public bool batch_unlocked;
+            public PlotDto[] plots;
+            public InventoryDto[] inventory;
+        }
+
+        [Serializable]
+        public sealed class PlotDto
+        {
+            public int plot_index;
+            // MySQL BOOLEAN(TINYINT)은 mysql2에서 JSON 숫자 0/1로 직렬화된다.
+            public int unlocked;
+            public string crop_type;
+            public string planted_at;
+            public int water_count;
+            public string ready_at;
+            public string state;
+            public float world_x;
+            public float world_y;
+            public int has_position;
+        }
+
+        [Serializable]
+        public sealed class InventoryDto
+        {
+            public string item_type;
+            public int quantity;
+        }
+
+        [Serializable]
+        public sealed class BuyPlotResponse
+        {
+            public int plotIndex;
+            public int spent;
+            public int money;
+        }
+
+        [Serializable]
+        public sealed class DeletePlotResponse
+        {
+            public int plotIndex;
+            public int refunded;
+        }
+
+        [Serializable]
+        public sealed class BuySeedResponse
+        {
+            public string seedType;
+            public int quantity;
+            public int spent;
+            public int money;
+        }
+
+        [Serializable]
+        public sealed class PlantCropResponse
+        {
+            public int plotIndex;
+            public string cropType;
+            public int growSeconds;
+        }
+
+        [Serializable]
+        public sealed class WaterCropResponse
+        {
+            public int plotIndex;
+            public bool succeeded;
+            public int reducedSeconds;
+            public int waterCount;
+            public int maxWaterCount;
+            public string readyAt;
+            public string state;
+        }
+
+        [Serializable]
+        public sealed class HarvestCropResponse
+        {
+            public int plotIndex;
+            public string cropType;
+            public int earned;
+            public int money;
+            public int wheat_harvest_count;
+            public bool batch_unlocked;
         }
     }
 }
