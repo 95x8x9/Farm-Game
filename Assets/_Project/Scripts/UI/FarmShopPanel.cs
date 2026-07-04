@@ -11,136 +11,120 @@ namespace FarmGame.UI
 
         [SerializeField] private GameObject panel;
         [SerializeField] private RectTransform shopTabButton;
-        [SerializeField] private RectTransform seedButton;
-        [SerializeField] private RectTransform potatoButton;
-        [SerializeField] private RectTransform purchaseButton;
+        [SerializeField] private RectTransform wheatRow;
+        [SerializeField] private RectTransform plotRow;
+        [SerializeField] private RectTransform removeRow;
         [SerializeField] private RectTransform closeButton;
-        [SerializeField] private Text priceText;
-        [SerializeField] private Text statusText;
+        [SerializeField] private Text wheatDescText;
+        [SerializeField] private Text plotDescText;
 
         private Action purchaseRequested;
         private Action<string> cropPlantRequested;
+        private Action plotRemoveRequested;
         private Action visibilityChanged;
-        private bool canPurchase;
-        private bool canPlantWheat;
-        private bool canPlantPotato;
 
         public bool IsOpen => panel != null && panel.activeSelf;
 
         public static FarmShopPanel Create(Transform parent)
         {
-            GameObject shopTab = CreateImage("Shop Tab", parent, new Color(0.30f, 0.45f, 0.22f, 0.97f));
+            GameObject shopTab = CreateImage("Shop Tab", parent, Color.white);
             RectTransform shopTabRect = shopTab.GetComponent<RectTransform>();
             SetAnchored(shopTabRect, new Vector2(1f, 0f), new Vector2(158f, 58f), new Vector2(-24f, 132f), new Vector2(1f, 0f));
-            shopTab.GetComponent<Image>().raycastTarget = false;
-            Text shopTabLabel = CreateText("Label", shopTab.transform, "상점", 24, TextAnchor.MiddleCenter, new Color(0.88f, 0.94f, 0.80f));
-            SetStretch(shopTabLabel.rectTransform, 0f, 0f, 1f, 1f, 4f, 4f, -4f, -4f);
+            Image shopTabImage = shopTab.GetComponent<Image>();
+            shopTabImage.sprite = LoadFirstSprite("Image/btn_cart");
+            shopTabImage.preserveAspect = true;
+            shopTabImage.raycastTarget = false;
 
             GameObject panelObject = CreateImage("Shop Panel", parent, Color.white);
             RectTransform panelRect = panelObject.GetComponent<RectTransform>();
             SetAnchored(panelRect, new Vector2(0.5f, 0.5f), new Vector2(650f, 457f), Vector2.zero);
             Image panelImage = panelObject.GetComponent<Image>();
-            panelImage.sprite = LoadFirstSprite("Image/panel_shop_borderless");
+            panelImage.sprite = LoadFirstSprite("Image/panel_shop");
             panelImage.raycastTarget = false;
 
-            Text heading = CreateText("Heading", panelObject.transform, "작물 상점", 28, TextAnchor.MiddleLeft, new Color(0.20f, 0.25f, 0.15f));
-            SetAnchored(heading.rectTransform, new Vector2(0.5f, 1f), new Vector2(300f, 48f), new Vector2(105f, -34f), new Vector2(0.5f, 1f));
-
-            GameObject close = CreateImage("Close", panelObject.transform, new Color(0.32f, 0.42f, 0.22f, 0.95f));
+            GameObject close = CreateImage("Close", panelObject.transform, Color.white);
             RectTransform closeRect = close.GetComponent<RectTransform>();
-            SetAnchored(closeRect, new Vector2(1f, 1f), new Vector2(38f, 38f), new Vector2(-16f, -16f), new Vector2(1f, 1f));
-            Text closeLabel = CreateText("Label", close.transform, "X", 23, TextAnchor.MiddleCenter, Color.white);
-            SetStretch(closeLabel.rectTransform, 0f, 0f, 1f, 1f, 4f, 4f, -4f, -4f);
+            SetAnchored(closeRect, new Vector2(1f, 1f), new Vector2(42f, 44f), new Vector2(-14f, -14f), new Vector2(1f, 1f));
+            Image closeImage = close.GetComponent<Image>();
+            closeImage.sprite = LoadFirstSprite("Image/btn_close");
+            closeImage.preserveAspect = true;
 
-            GameObject product = CreateImage("Selected Product", panelObject.transform, Color.clear);
-            SetAnchored(product.GetComponent<RectTransform>(), new Vector2(0.5f, 0.5f), new Vector2(330f, 270f), new Vector2(105f, -5f));
+            // 이미지에 그려진 3개 행(아이콘·코인·초록 버튼)에 맞춘 클릭 영역과 텍스트.
+            RectTransform wheatRowRect = CreateRowHitArea(panelObject.transform, "Wheat Row", 136f);
+            RectTransform plotRowRect = CreateRowHitArea(panelObject.transform, "Plot Row", 1f);
+            RectTransform removeRowRect = CreateRowHitArea(panelObject.transform, "Remove Row", -133f);
 
-            Text name = CreateText("Name", product.transform, "씨앗과 밭 구매", 27, TextAnchor.MiddleLeft, new Color(0.10f, 0.14f, 0.07f));
-            SetAnchored(name.rectTransform, new Vector2(0f, 1f), new Vector2(180f, 48f), new Vector2(22f, -18f), new Vector2(0f, 1f));
+            Color titleColor = new(0.10f, 0.14f, 0.07f);
+            Color descColor = new(0.24f, 0.20f, 0.12f);
+            Color buttonTextColor = new(0.07f, 0.12f, 0.04f);
 
-            Text description = CreateText("Description", product.transform, "밀이나 감자 가격 버튼을 누른 뒤\n빈 밭을 선택해 심으세요.\n밭은 원하는 위치에 추가할 수 있습니다.", 19, TextAnchor.UpperLeft, new Color(0.12f, 0.17f, 0.09f));
-            SetAnchored(description.rectTransform, new Vector2(0f, 0.5f), new Vector2(290f, 80f), new Vector2(22f, 10f), new Vector2(0f, 0.5f));
+            Text wheatTitle = CreateText("Wheat Title", panelObject.transform, "[밀 씨앗]", 24, TextAnchor.MiddleLeft, titleColor);
+            SetAnchored(wheatTitle.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(362f, 40f), new Vector2(101f, 162f));
+            Text wheatDesc = CreateText("Wheat Desc", panelObject.transform, "가격 -원 / 판매 시 -원 / 성장 -분", 17, TextAnchor.MiddleLeft, descColor);
+            SetAnchored(wheatDesc.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(362f, 30f), new Vector2(101f, 112f));
+            Text wheatButtonLabel = CreateText("Wheat Button Label", panelObject.transform, "구매", 19, TextAnchor.MiddleCenter, buttonTextColor);
+            SetAnchored(wheatButtonLabel.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(86f, 30f), new Vector2(-150f, 107f));
 
-            Text price = CreateText("Price", product.transform, "상품 버튼에 가격이 표시됩니다.", 19, TextAnchor.MiddleLeft, new Color(0.28f, 0.14f, 0.03f));
-            SetAnchored(price.rectTransform, new Vector2(0f, 0f), new Vector2(180f, 48f), new Vector2(22f, 14f), new Vector2(0f, 0f));
+            Text plotTitle = CreateText("Plot Title", panelObject.transform, "[밭]", 24, TextAnchor.MiddleLeft, titleColor);
+            SetAnchored(plotTitle.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(362f, 40f), new Vector2(101f, 27f));
+            Text plotDesc = CreateText("Plot Desc", panelObject.transform, "가격 -원 / 삭제 시 0원 / 설치 즉시", 17, TextAnchor.MiddleLeft, descColor);
+            SetAnchored(plotDesc.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(362f, 30f), new Vector2(101f, -23f));
+            Text plotButtonLabel = CreateText("Plot Button Label", panelObject.transform, "설치", 19, TextAnchor.MiddleCenter, buttonTextColor);
+            SetAnchored(plotButtonLabel.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(86f, 30f), new Vector2(-150f, -28f));
 
-            GameObject seed = CreateImage("Plant Wheat", panelObject.transform, Color.clear);
-            RectTransform seedRect = seed.GetComponent<RectTransform>();
-            SetAnchored(seedRect, new Vector2(0.5f, 0.5f), new Vector2(88f, 34f), new Vector2(-154f, 92f));
-            Text seedLabel = CreateText("Label", seed.transform, "10원", 20, TextAnchor.MiddleCenter, new Color(0.05f, 0.09f, 0.03f));
-            SetStretch(seedLabel.rectTransform, 0f, 0f, 1f, 1f, 2f, 4f, -2f, 0f);
-
-            Text wheatName = CreateText("Wheat Name", panelObject.transform, "밀", 18, TextAnchor.MiddleCenter, new Color(0.08f, 0.12f, 0.05f));
-            SetAnchored(wheatName.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(70f, 26f), new Vector2(-250f, 60f));
-
-            GameObject potato = CreateImage("Plant Potato", panelObject.transform, Color.clear);
-            RectTransform potatoRect = potato.GetComponent<RectTransform>();
-            SetAnchored(potatoRect, new Vector2(0.5f, 0.5f), new Vector2(88f, 34f), new Vector2(-154f, -35f));
-            Text potatoLabel = CreateText("Label", potato.transform, "20원", 20, TextAnchor.MiddleCenter, new Color(0.05f, 0.09f, 0.03f));
-            SetStretch(potatoLabel.rectTransform, 0f, 0f, 1f, 1f, 2f, 4f, -2f, 0f);
-
-            Text potatoName = CreateText("Potato Name", panelObject.transform, "감자", 18, TextAnchor.MiddleCenter, new Color(0.08f, 0.12f, 0.05f));
-            SetAnchored(potatoName.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(70f, 26f), new Vector2(-250f, -67f));
-
-            GameObject purchase = CreateImage("Purchase Plot", panelObject.transform, Color.clear);
-            RectTransform purchaseRect = purchase.GetComponent<RectTransform>();
-            SetAnchored(purchaseRect, new Vector2(0.5f, 0.5f), new Vector2(88f, 34f), new Vector2(-154f, -162f));
-            Text purchaseLabel = CreateText("Label", purchase.transform, "100원", 19, TextAnchor.MiddleCenter, new Color(0.05f, 0.09f, 0.03f));
-            SetStretch(purchaseLabel.rectTransform, 0f, 0f, 1f, 1f, 2f, 4f, -2f, 0f);
-
-            Text plotName = CreateText("Plot Name", panelObject.transform, "밭", 18, TextAnchor.MiddleCenter, new Color(0.08f, 0.12f, 0.05f));
-            SetAnchored(plotName.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(70f, 26f), new Vector2(-250f, -194f));
-
-            Text status = CreateText("Status", panelObject.transform, string.Empty, 17, TextAnchor.MiddleCenter, new Color(0.35f, 0.20f, 0.06f));
-            SetAnchored(status.rectTransform, new Vector2(0.5f, 0f), new Vector2(335f, 64f), new Vector2(105f, 42f), new Vector2(0.5f, 0f));
+            Text removeTitle = CreateText("Remove Title", panelObject.transform, "[밭 삭제]", 24, TextAnchor.MiddleLeft, titleColor);
+            SetAnchored(removeTitle.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(362f, 40f), new Vector2(101f, -107f));
+            Text removeDesc = CreateText("Remove Desc", panelObject.transform, "가격 0원 / 빈 밭 클릭 / 삭제 즉시", 17, TextAnchor.MiddleLeft, descColor);
+            SetAnchored(removeDesc.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(362f, 30f), new Vector2(101f, -157f));
+            Text removeButtonLabel = CreateText("Remove Button Label", panelObject.transform, "삭제", 19, TextAnchor.MiddleCenter, buttonTextColor);
+            SetAnchored(removeButtonLabel.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(86f, 30f), new Vector2(-150f, -162f));
 
             FarmShopPanel shop = parent.gameObject.AddComponent<FarmShopPanel>();
             MakeTextCrisp(
-                shopTabLabel,
-                heading,
-                name,
-                description,
-                price,
-                seedLabel,
-                wheatName,
-                potatoLabel,
-                potatoName,
-                purchaseLabel,
-                plotName,
-                status);
+                wheatTitle,
+                wheatDesc,
+                wheatButtonLabel,
+                plotTitle,
+                plotDesc,
+                plotButtonLabel,
+                removeTitle,
+                removeDesc,
+                removeButtonLabel);
 
-            shop.Configure(panelObject, shopTabRect, seedRect, potatoRect, purchaseRect, closeRect, price, status);
+            shop.Configure(panelObject, shopTabRect, wheatRowRect, plotRowRect, removeRowRect, closeRect, wheatDesc, plotDesc);
             return shop;
         }
 
         public void Configure(
             GameObject panelObject,
             RectTransform tabButton,
-            RectTransform plantSeedButton,
-            RectTransform plantPotatoButton,
-            RectTransform buyButton,
+            RectTransform wheatRowRect,
+            RectTransform plotRowRect,
+            RectTransform removeRowRect,
             RectTransform closeButtonRect,
-            Text priceLabel,
-            Text statusLabel)
+            Text wheatDesc,
+            Text plotDesc)
         {
             panel = panelObject;
             shopTabButton = tabButton;
-            seedButton = plantSeedButton;
-            potatoButton = plantPotatoButton;
-            purchaseButton = buyButton;
+            wheatRow = wheatRowRect;
+            plotRow = plotRowRect;
+            removeRow = removeRowRect;
             closeButton = closeButtonRect;
-            priceText = priceLabel;
-            statusText = statusLabel;
+            wheatDescText = wheatDesc;
+            plotDescText = plotDesc;
             panel.SetActive(false);
         }
 
         public void Initialize(
             Action onPurchaseRequested,
             Action<string> onCropPlantRequested,
+            Action onPlotRemoveRequested,
             Action onVisibilityChanged)
         {
             purchaseRequested = onPurchaseRequested;
             cropPlantRequested = onCropPlantRequested;
+            plotRemoveRequested = onPlotRemoveRequested;
             visibilityChanged = onVisibilityChanged;
         }
 
@@ -167,24 +151,20 @@ namespace FarmGame.UI
             visibilityChanged?.Invoke();
         }
 
-        public void Refresh(int plotPrice, int wheatSeedPrice, int potatoSeedPrice, int money, int availableSlots)
+        public void Refresh(int plotPrice, int seedPrice, int sellPrice, int growthSeconds, int money, int availableSlots)
         {
-            canPurchase = money >= plotPrice && availableSlots > 0;
-            canPlantWheat = money >= wheatSeedPrice;
-            canPlantPotato = money >= potatoSeedPrice;
-            if (priceText != null)
+            if (wheatDescText != null)
             {
-                priceText.text = $"밀 {wheatSeedPrice:N0}원 · 감자 {potatoSeedPrice:N0}원 · 밭 {plotPrice:N0}원";
+                string growth = growthSeconds >= 60 ? $"{growthSeconds / 60}분" : $"{growthSeconds}초";
+                wheatDescText.text = $"가격 {seedPrice:N0}원 / 판매 시 {sellPrice:N0}원 / 성장 {growth}";
             }
 
-            if (statusText == null)
+            if (plotDescText != null)
             {
-                return;
+                plotDescText.text = availableSlots > 0
+                    ? $"가격 {plotPrice:N0}원 / 삭제 시 0원 / 설치 즉시"
+                    : "모든 밭을 배치했습니다";
             }
-
-            statusText.text = availableSlots <= 0
-                ? $"보유금 {money:N0}원 · 모든 밭 배치 완료"
-                : $"보유금 {money:N0}원 · 밭 추가 {plotPrice:N0}원";
         }
 
         private void Update()
@@ -202,34 +182,21 @@ namespace FarmGame.UI
                     return;
                 }
 
-                if (Contains(seedButton, screenPosition))
+                if (Contains(wheatRow, screenPosition))
                 {
-                    if (canPlantWheat)
-                    {
-                        cropPlantRequested?.Invoke("wheat");
-                    }
-
+                    cropPlantRequested?.Invoke("wheat");
                     return;
                 }
 
-                if (Contains(potatoButton, screenPosition))
+                if (Contains(plotRow, screenPosition))
                 {
-                    if (canPlantPotato)
-                    {
-                        cropPlantRequested?.Invoke("potato");
-                    }
-
+                    purchaseRequested?.Invoke();
                     return;
                 }
 
-                if (Contains(purchaseButton, screenPosition))
+                if (Contains(removeRow, screenPosition))
                 {
-                    if (canPurchase)
-                    {
-                        purchaseRequested?.Invoke();
-                    }
-
-                    return;
+                    plotRemoveRequested?.Invoke();
                 }
 
                 return;
@@ -239,6 +206,14 @@ namespace FarmGame.UI
             {
                 Open();
             }
+        }
+
+        private static RectTransform CreateRowHitArea(Transform parent, string name, float centerY)
+        {
+            GameObject row = CreateImage(name, parent, Color.clear);
+            RectTransform rect = row.GetComponent<RectTransform>();
+            SetAnchored(rect, new Vector2(0.5f, 0.5f), new Vector2(588f, 124f), new Vector2(0f, centerY));
+            return rect;
         }
 
         private static bool Contains(RectTransform rect, Vector2 screenPosition)
@@ -296,6 +271,11 @@ namespace FarmGame.UI
                 label.fontStyle = FontStyle.Bold;
                 label.horizontalOverflow = HorizontalWrapMode.Overflow;
                 label.verticalOverflow = VerticalWrapMode.Overflow;
+
+                // 글리프를 2배 해상도로 굽고 절반 크기로 표시해 선명도를 높인다.
+                label.fontSize *= 2;
+                label.rectTransform.sizeDelta *= 2f;
+                label.rectTransform.localScale = new Vector3(0.5f, 0.5f, 1f);
             }
         }
 

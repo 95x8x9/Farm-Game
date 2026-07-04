@@ -187,10 +187,11 @@ namespace FarmGame.Editor
 
         private static FarmHud BuildHud(Transform parent)
         {
-            GameObject topBar = CreateImage("Top Bar", parent, new Color(0.18f, 0.23f, 0.16f, 0.97f));
-            SetStretch(topBar.GetComponent<RectTransform>(), 0f, 1f, 1f, 1f, 0f, -76f, 0f, 0f);
+            GameObject topBar = CreateImage("Top Bar", parent, Color.white);
+            ApplyBeigePanel(topBar.GetComponent<Image>());
+            SetStretch(topBar.GetComponent<RectTransform>(), 0f, 1f, 1f, 1f, 6f, -76f, -6f, -4f);
 
-            Text title = CreateText("Title", topBar.transform, "작은 밀 농장", 28, TextAnchor.MiddleCenter, new Color(0.93f, 0.95f, 0.85f));
+            Text title = CreateText("Title", topBar.transform, "작은 밀 농장", 28, TextAnchor.MiddleCenter, new Color(0.24f, 0.19f, 0.10f));
             SetAnchored(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(280f, 54f), Vector2.zero);
 
             GameObject coinObject = CreateImage("Coin Icon", topBar.transform, Color.white);
@@ -201,14 +202,15 @@ namespace FarmGame.Editor
             coinImage.raycastTarget = false;
             SetAnchored(coinObject.GetComponent<RectTransform>(), new Vector2(0f, 0.5f), new Vector2(36f, 36f), new Vector2(28f, 0f), new Vector2(0f, 0.5f));
 
-            Text money = CreateText("Money", topBar.transform, "보유금", 25, TextAnchor.MiddleLeft, new Color(1f, 0.85f, 0.28f));
+            Text money = CreateText("Money", topBar.transform, "보유금", 25, TextAnchor.MiddleLeft, new Color(0.55f, 0.38f, 0.03f));
             SetAnchored(money.rectTransform, new Vector2(0f, 0.5f), new Vector2(236f, 54f), new Vector2(72f, 0f), new Vector2(0f, 0.5f));
 
-            Text harvest = CreateText("Harvest", topBar.transform, "밀 수확", 25, TextAnchor.MiddleRight, new Color(0.75f, 1f, 0.60f));
+            Text harvest = CreateText("Harvest", topBar.transform, "밀 수확", 25, TextAnchor.MiddleRight, new Color(0.20f, 0.40f, 0.12f));
             SetAnchored(harvest.rectTransform, new Vector2(1f, 0.5f), new Vector2(280f, 54f), new Vector2(-28f, 0f), new Vector2(1f, 0.5f));
 
-            GameObject messagePanel = CreateImage("Message Panel", parent, new Color(0.19f, 0.25f, 0.14f, 0.92f));
-            SetStretch(messagePanel.GetComponent<RectTransform>(), 0f, 0f, 1f, 0f, 0f, 0f, 0f, 118f);
+            GameObject messagePanel = CreateImage("Message Panel", parent, Color.white);
+            ApplyBeigePanel(messagePanel.GetComponent<Image>());
+            SetStretch(messagePanel.GetComponent<RectTransform>(), 0f, 0f, 1f, 0f, 6f, 4f, -6f, 118f);
 
             Text message = CreateText(
                 "Message",
@@ -216,7 +218,7 @@ namespace FarmGame.Editor
                 "상점에서 밭을 골라 원하는 위치에 배치하세요.",
                 22,
                 TextAnchor.MiddleCenter,
-                Color.white);
+                new Color(0.18f, 0.14f, 0.08f));
             SetStretch(message.rectTransform, 0f, 0f, 1f, 1f, 20f, 34f, -20f, -8f);
 
             Text legend = CreateText(
@@ -225,7 +227,7 @@ namespace FarmGame.Editor
                 "상점: 자유 배치   빨강: 설치 불가   파란 표시: 물 필요   초록: 성장   노랑: 수확",
                 16,
                 TextAnchor.MiddleCenter,
-                new Color(0.78f, 0.85f, 0.68f));
+                new Color(0.42f, 0.35f, 0.22f));
             SetStretch(legend.rectTransform, 0f, 0f, 1f, 0f, 12f, 4f, -12f, 34f);
 
             FarmHud hud = parent.gameObject.AddComponent<FarmHud>();
@@ -305,6 +307,26 @@ namespace FarmGame.Editor
                 importer.alphaIsTransparency = true;
                 importer.SaveAndReimport();
             }
+        }
+
+        private static void ApplyBeigePanel(Image image)
+        {
+            Sprite panelSprite = LoadFirstSprite("Image/panel_beige");
+            if (panelSprite == null)
+            {
+                image.color = new Color(0.97f, 0.93f, 0.85f, 0.96f);
+                return;
+            }
+
+            image.sprite = panelSprite;
+            image.type = Image.Type.Sliced;
+            image.color = Color.white;
+        }
+
+        private static Sprite LoadFirstSprite(string resourcePath)
+        {
+            Sprite[] sprites = Resources.LoadAll<Sprite>(resourcePath);
+            return sprites.Length > 0 ? sprites[0] : Resources.Load<Sprite>(resourcePath);
         }
 
         private static GameObject CreateImage(string name, Transform parent, Color color)

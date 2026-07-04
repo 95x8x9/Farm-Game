@@ -42,10 +42,12 @@ namespace FarmGame.Core
         private FarmCellView placementPreviewView;
         private CropDefinition selectedCropForPlanting;
         private CropDefinition potato;
+        private bool isRemovingPlot;
 
         public bool IsMinigameActive => wateringMinigame != null && wateringMinigame.IsPlaying;
         public bool IsPlacingPlot => isPlacingPlot;
         public bool IsPlantingCrop => selectedCropForPlanting != null;
+        public bool IsRemovingPlot => isRemovingPlot;
         public bool IsInputBlocked => IsMinigameActive
             || (shopPanel != null && shopPanel.IsOpen)
             || (firstPlotTutorialPopup != null && firstPlotTutorialPopup.IsVisible)
@@ -82,7 +84,7 @@ namespace FarmGame.Core
                 shopPanel = FarmShopPanel.Create(canvas.transform);
             }
 
-            shopPanel?.Initialize(BeginPlotPlacement, BeginCropPlanting, HandleShopVisibilityChanged);
+            shopPanel?.Initialize(BeginPlotPlacement, BeginCropPlanting, BeginPlotRemoval, HandleShopVisibilityChanged);
             if (firstPlotTutorialPopup == null)
             {
                 if (canvas != null)
@@ -142,6 +144,12 @@ namespace FarmGame.Core
             FarmCellState cell = FindCell(view.X, view.Y);
             if (cell == null)
             {
+                return;
+            }
+
+            if (isRemovingPlot)
+            {
+                RemovePlot(cell);
                 return;
             }
 
@@ -244,6 +252,7 @@ namespace FarmGame.Core
             shopPanel?.Close();
             isPlacingPlot = false;
             selectedCropForPlanting = null;
+            isRemovingPlot = false;
             ClearPlacementPreview();
             repository.Delete();
             saveData = CreateNewSave();
@@ -263,6 +272,17 @@ namespace FarmGame.Core
             hud.SetMessage("작물 심기를 취소했습니다.");
         }
 
+        public void CancelPlotRemoval()
+        {
+            if (!isRemovingPlot)
+            {
+                return;
+            }
+
+            isRemovingPlot = false;
+            hud.SetMessage("밭 삭제를 취소했습니다.");
+        }
+
         private void HandleFirstPlotTutorialDismissed(bool purchaseRequested)
         {
             inputBlockThroughFrame = Time.frameCount;
@@ -278,6 +298,7 @@ namespace FarmGame.Core
         private void OpenShop()
         {
             isPlacingPlot = false;
+            isRemovingPlot = false;
             selectedCropForPlanting = null;
             ClearPlacementPreview();
             shopPanel?.Open();
@@ -290,9 +311,49 @@ namespace FarmGame.Core
             inputBlockThroughFrame = Time.frameCount;
         }
 
+        private void BeginPlotRemoval()
+        {
+            selectedCropForPlanting = null;
+            isPlacingPlot = false;
+            ClearPlacementPreview();
+            if (!saveData.cells.Any(cell => cell.purchased && string.IsNullOrEmpty(cell.cropId)))
+            {
+                hud.SetMessage("삭제할 수 있는 빈 밭이 없습니다. 작물이 있는 밭은 수확 후 삭제하세요.");
+                return;
+            }
+
+            shopPanel?.Close();
+            inputBlockThroughFrame = Time.frameCount;
+            isRemovingPlot = true;
+            RefreshAll();
+            hud.SetMessage("삭제할 빈 밭을 클릭하세요. Esc 또는 우클릭으로 취소합니다.");
+        }
+
+        private void RemovePlot(FarmCellState cell)
+        {
+            if (!cell.purchased)
+            {
+                hud.SetMessage("구매한 밭만 삭제할 수 있습니다.");
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(cell.cropId))
+            {
+                hud.SetMessage("작물이 자라는 밭은 삭제할 수 없습니다. 수확 후 삭제하세요.");
+                return;
+            }
+
+            cell.purchased = false;
+            cell.hasWorldPosition = false;
+            cell.ClearCrop();
+            isRemovingPlot = false;
+            Commit("밭을 삭제했습니다. (환급 0원)");
+        }
+
         private void BeginPlotPlacement()
         {
             selectedCropForPlanting = null;
+            isRemovingPlot = false;
             if (saveData.money < PlotPrice)
             {
                 hud.SetMessage($"밭 구매에는 {PlotPrice}원이 필요합니다.");
@@ -333,6 +394,7 @@ namespace FarmGame.Core
             }
 
             isPlacingPlot = false;
+            isRemovingPlot = false;
             ClearPlacementPreview();
             selectedCropForPlanting = crop;
             shopPanel?.Close();
@@ -510,7 +572,8 @@ namespace FarmGame.Core
             shopPanel?.Refresh(
                 PlotPrice,
                 wheat.SeedPrice,
-                potato.SeedPrice,
+                wheat.SellPrice,
+                wheat.GrowthSeconds,
                 saveData.money,
                 saveData.cells.Count(cell => !cell.purchased));
         }
