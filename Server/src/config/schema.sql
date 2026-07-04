@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS player_state (
   user_id              INT PRIMARY KEY,
-  money                INT NOT NULL DEFAULT 500,   -- 초기 자금 500원
+  money                INT NOT NULL DEFAULT 510,   -- 초기 자금 510원
   level                INT NOT NULL DEFAULT 1,
   wheat_harvest_count  INT NOT NULL DEFAULT 0,
   batch_unlocked       BOOLEAN NOT NULL DEFAULT FALSE,

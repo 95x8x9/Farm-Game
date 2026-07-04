@@ -10,7 +10,8 @@ namespace FarmGame.Core
 {
     public sealed class FarmGameManager : MonoBehaviour
     {
-        private const int InitialMoney = 500;
+        private const int InitialMoney = 510;
+        private const int LegacyInitialMoney = 500;
         private const int PlotPrice = 100;
         private const int WaterSuccessReductionSeconds = 60;
         private const int WaterFailReductionSeconds = 30;
@@ -22,6 +23,7 @@ namespace FarmGame.Core
         [SerializeField] private WateringMinigame wateringMinigame;
         [SerializeField] private FarmShopPanel shopPanel;
         [SerializeField] private FirstPlotTutorialPopup firstPlotTutorialPopup;
+        [SerializeField] private LoginPanel loginPanel;
         // 픽셀 배경(bg_farm_pixel)의 흙밭 스트립(x -4.0~3.8)에서 밭 절반 크기만큼 안쪽으로 들어온 영역.
         private static readonly Rect PixelFieldPlacementBounds = new(-3.3f, -2.6f, 6.4f, 5.55f);
 
@@ -43,6 +45,7 @@ namespace FarmGame.Core
         private CropDefinition selectedCropForPlanting;
         private CropDefinition potato;
         private bool isRemovingPlot;
+        private string activeSaveOwner = string.Empty;
 
         public bool IsMinigameActive => wateringMinigame != null && wateringMinigame.IsPlaying;
         public bool IsPlacingPlot => isPlacingPlot;
@@ -51,6 +54,7 @@ namespace FarmGame.Core
         public bool IsInputBlocked => IsMinigameActive
             || (shopPanel != null && shopPanel.IsOpen)
             || (firstPlotTutorialPopup != null && firstPlotTutorialPopup.IsVisible)
+            || (loginPanel != null && loginPanel.IsVisible)
             || Time.frameCount <= inputBlockThroughFrame;
 
         public void Configure(
@@ -98,6 +102,20 @@ namespace FarmGame.Core
             {
                 saveData = CreateNewSave();
             }
+            else
+            {
+                ApplyStartingMoneyMigration();
+            }
+
+            if (loginPanel == null && canvas != null)
+            {
+                loginPanel = LoginPanel.Create(canvas.transform);
+            }
+
+            loginPanel?.Initialize(
+                message => hud.SetMessage(message),
+                HandleSessionStarted,
+                HandleSessionEnded);
 
             RepairCellCollection();
             RefreshAll();
@@ -270,6 +288,56 @@ namespace FarmGame.Core
 
             selectedCropForPlanting = null;
             hud.SetMessage("작물 심기를 취소했습니다.");
+        }
+
+        private void HandleSessionStarted(string username)
+        {
+            LoadSaveForOwner(username);
+        }
+
+        private void HandleSessionEnded()
+        {
+            LoadSaveForOwner(null);
+        }
+
+        private void LoadSaveForOwner(string ownerKey)
+        {
+            Save();
+
+            string nextOwner = string.IsNullOrWhiteSpace(ownerKey) ? string.Empty : ownerKey.Trim();
+            if (nextOwner == activeSaveOwner)
+            {
+                return;
+            }
+
+            activeSaveOwner = nextOwner;
+            repository = new PlayerPrefsGameRepository(activeSaveOwner);
+            bool loaded = repository.TryLoad(out saveData);
+            if (!loaded)
+            {
+                saveData = CreateNewSave();
+            }
+            else
+            {
+                ApplyStartingMoneyMigration();
+            }
+
+            isPlacingPlot = false;
+            selectedCropForPlanting = null;
+            isRemovingPlot = false;
+            ClearPlacementPreview();
+            shopPanel?.Close();
+            RepairCellCollection();
+            RefreshAll();
+
+            if (loaded)
+            {
+                firstPlotTutorialPopup?.Hide();
+            }
+            else
+            {
+                firstPlotTutorialPopup?.Show(HandleFirstPlotTutorialDismissed);
+            }
         }
 
         public void CancelPlotRemoval()
@@ -590,6 +658,29 @@ namespace FarmGame.Core
             }
 
             return data;
+        }
+
+        private void ApplyStartingMoneyMigration()
+        {
+            if (saveData == null || saveData.money != LegacyInitialMoney || saveData.totalWheatHarvested != 0)
+            {
+                return;
+            }
+
+            bool hasProgress = saveData.cells != null && saveData.cells.Any(cell =>
+                cell.purchased ||
+                !string.IsNullOrEmpty(cell.cropId) ||
+                cell.waterCount > 0 ||
+                cell.plantedAtUtc > 0 ||
+                cell.readyAtUtc > 0);
+
+            if (hasProgress)
+            {
+                return;
+            }
+
+            saveData.money = InitialMoney;
+            Save();
         }
 
         private void RepairCellCollection()
