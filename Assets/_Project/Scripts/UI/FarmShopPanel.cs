@@ -29,14 +29,12 @@ namespace FarmGame.UI
 
         public static FarmShopPanel Create(Transform parent)
         {
-            GameObject shopTab = CreateImage("Shop Tab", parent, Color.white);
+            GameObject shopTab = CreateImage("Shop Tab", parent, new Color(0.30f, 0.45f, 0.22f, 0.97f));
             RectTransform shopTabRect = shopTab.GetComponent<RectTransform>();
-            SetAnchored(shopTabRect, new Vector2(1f, 0f), new Vector2(150f, 58f), new Vector2(-24f, 132f), new Vector2(1f, 0f));
-            Image shopTabImage = shopTab.GetComponent<Image>();
-            Sprite[] cartSprites = Resources.LoadAll<Sprite>("Image/btn_cart");
-            shopTabImage.sprite = cartSprites.Length > 0 ? cartSprites[0] : null;
-            shopTabImage.preserveAspect = true;
-            shopTabImage.raycastTarget = false;
+            SetAnchored(shopTabRect, new Vector2(1f, 0f), new Vector2(158f, 58f), new Vector2(-24f, 132f), new Vector2(1f, 0f));
+            shopTab.GetComponent<Image>().raycastTarget = false;
+            Text shopTabLabel = CreateText("Label", shopTab.transform, "상점", 24, TextAnchor.MiddleCenter, new Color(0.88f, 0.94f, 0.80f));
+            SetStretch(shopTabLabel.rectTransform, 0f, 0f, 1f, 1f, 4f, 4f, -4f, -4f);
 
             GameObject panelObject = CreateImage("Shop Panel", parent, Color.white);
             RectTransform panelRect = panelObject.GetComponent<RectTransform>();
@@ -98,6 +96,7 @@ namespace FarmGame.UI
 
             FarmShopPanel shop = parent.gameObject.AddComponent<FarmShopPanel>();
             MakeTextCrisp(
+                shopTabLabel,
                 heading,
                 name,
                 description,

@@ -22,7 +22,10 @@ namespace FarmGame.Core
         [SerializeField] private WateringMinigame wateringMinigame;
         [SerializeField] private FarmShopPanel shopPanel;
         [SerializeField] private FirstPlotTutorialPopup firstPlotTutorialPopup;
-        [SerializeField] private Rect plotPlacementBounds = new(-2.95f, -3.25f, 5.0f, 6.2f);
+        // 픽셀 배경(bg_farm_pixel)의 흙밭 스트립(x -4.0~3.8)에서 밭 절반 크기만큼 안쪽으로 들어온 영역.
+        private static readonly Rect PixelFieldPlacementBounds = new(-3.3f, -2.6f, 6.4f, 5.55f);
+
+        [SerializeField] private Rect plotPlacementBounds = new(-3.3f, -2.6f, 6.4f, 5.55f);
         [SerializeField] private Vector2 plotFootprint = new(1.36f, 1.44f);
         [SerializeField] private LayerMask placementBlockingLayers = ~0;
 
@@ -70,6 +73,9 @@ namespace FarmGame.Core
             repository = new PlayerPrefsGameRepository();
             timeProvider = new SystemTimeProvider();
             EnsureCropCatalog();
+            FarmBackdrop.Ensure();
+            // 씬에 옛 배치 범위가 직렬화되어 있을 수 있으므로 흙밭 전체 범위로 덮어쓴다.
+            plotPlacementBounds = PixelFieldPlacementBounds;
             Canvas canvas = FindFirstObjectByType<Canvas>();
             if (shopPanel == null && canvas != null)
             {

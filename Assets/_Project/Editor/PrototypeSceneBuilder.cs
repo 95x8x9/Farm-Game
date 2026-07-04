@@ -121,7 +121,7 @@ namespace FarmGame.Editor
             camera.orthographic = true;
             camera.orthographicSize = 5f;
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.45f, 0.70f, 0.36f);
+            camera.backgroundColor = new Color(0.51f, 0.66f, 0.36f);
             cameraObject.AddComponent<AudioListener>();
             UniversalAdditionalCameraData cameraData = cameraObject.AddComponent<UniversalAdditionalCameraData>();
             cameraData.renderType = CameraRenderType.Base;
@@ -138,22 +138,10 @@ namespace FarmGame.Editor
 
         private static void CreateMapBackdrop()
         {
-            GameObject map = new("Small Farm Map");
-            SpriteRenderer renderer = map.AddComponent<SpriteRenderer>();
-            renderer.color = new Color(0.74f, 0.61f, 0.36f);
-            renderer.sortingOrder = -10;
-            map.AddComponent<RuntimeSquareVisual>();
-            map.transform.position = new Vector3(0f, -0.15f, 1f);
-            map.transform.localScale = new Vector3(7.3f, 7.7f, 1f);
-
-            GameObject path = new("Farm Path");
-            SpriteRenderer pathRenderer = path.AddComponent<SpriteRenderer>();
-            pathRenderer.color = new Color(0.87f, 0.75f, 0.50f);
-            pathRenderer.sortingOrder = -9;
-            path.AddComponent<RuntimeSquareVisual>();
-            path.AddComponent<BoxCollider2D>();
-            path.transform.position = new Vector3(2.8f, -0.15f, 0.5f);
-            path.transform.localScale = new Vector3(1.1f, 7.7f, 1f);
+            // 스프라이트 로드와 배치는 FarmBackdrop이 런타임에 처리한다.
+            GameObject map = new("Farm Backdrop");
+            map.AddComponent<SpriteRenderer>();
+            map.AddComponent<FarmBackdrop>();
         }
 
         private static List<FarmCellView> CreateFarmCells()
@@ -199,10 +187,10 @@ namespace FarmGame.Editor
 
         private static FarmHud BuildHud(Transform parent)
         {
-            GameObject topBar = CreateImage("Top Bar", parent, new Color(0.09f, 0.12f, 0.10f, 0.92f));
+            GameObject topBar = CreateImage("Top Bar", parent, new Color(0.18f, 0.23f, 0.16f, 0.97f));
             SetStretch(topBar.GetComponent<RectTransform>(), 0f, 1f, 1f, 1f, 0f, -76f, 0f, 0f);
 
-            Text title = CreateText("Title", topBar.transform, "작은 밀 농장", 28, TextAnchor.MiddleCenter, Color.white);
+            Text title = CreateText("Title", topBar.transform, "작은 밀 농장", 28, TextAnchor.MiddleCenter, new Color(0.93f, 0.95f, 0.85f));
             SetAnchored(title.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(280f, 54f), Vector2.zero);
 
             GameObject coinObject = CreateImage("Coin Icon", topBar.transform, Color.white);
@@ -219,8 +207,8 @@ namespace FarmGame.Editor
             Text harvest = CreateText("Harvest", topBar.transform, "밀 수확", 25, TextAnchor.MiddleRight, new Color(0.75f, 1f, 0.60f));
             SetAnchored(harvest.rectTransform, new Vector2(1f, 0.5f), new Vector2(280f, 54f), new Vector2(-28f, 0f), new Vector2(1f, 0.5f));
 
-            GameObject messagePanel = CreateImage("Message Panel", parent, new Color(0.08f, 0.10f, 0.08f, 0.90f));
-            SetStretch(messagePanel.GetComponent<RectTransform>(), 0f, 0f, 1f, 0f, 18f, 18f, -18f, 112f);
+            GameObject messagePanel = CreateImage("Message Panel", parent, new Color(0.19f, 0.25f, 0.14f, 0.92f));
+            SetStretch(messagePanel.GetComponent<RectTransform>(), 0f, 0f, 1f, 0f, 0f, 0f, 0f, 118f);
 
             Text message = CreateText(
                 "Message",
@@ -237,7 +225,7 @@ namespace FarmGame.Editor
                 "상점: 자유 배치   빨강: 설치 불가   파란 표시: 물 필요   초록: 성장   노랑: 수확",
                 16,
                 TextAnchor.MiddleCenter,
-                new Color(0.80f, 0.86f, 0.80f));
+                new Color(0.78f, 0.85f, 0.68f));
             SetStretch(legend.rectTransform, 0f, 0f, 1f, 0f, 12f, 4f, -12f, 34f);
 
             FarmHud hud = parent.gameObject.AddComponent<FarmHud>();
