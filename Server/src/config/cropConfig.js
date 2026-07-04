@@ -26,9 +26,11 @@ const WATER_SUCCESS_REDUCTION_SECONDS = 60;
 const WATER_FAIL_REDUCTION_SECONDS = 30;
 
 // 누적 수확 관련 상수
-const BATCH_UNLOCK_HARVEST_COUNT = 5; // 밀 5번 수확 시 4칸 동시 작업 해금
-const DEFAULT_CONCURRENT_LIMIT = 1;   // 해금 전에는 동시에 1칸만 작업 가능
-const UNLOCKED_CONCURRENT_LIMIT = 4;  // 해금 후에는 4칸까지 동시 작업 가능
+const BATCH_UNLOCK_HARVEST_COUNT = 5; // 밀 5번 수확 시 해금 (통계용으로 유지)
+// 클라이언트에 동시 재배 제한 UI가 없어 시연 편의를 위해 전체 밭 수만큼 허용한다.
+// 해금 기반 제한 규칙은 2단계에서 클라이언트 UI와 함께 재도입 예정.
+const DEFAULT_CONCURRENT_LIMIT = 9;
+const UNLOCKED_CONCURRENT_LIMIT = 9;
 
 function getCropConfig(seedType) {
   return CROPS[seedType] || null;

@@ -121,10 +121,16 @@ namespace FarmGame.Net
             SendAuthenticated<FarmDataResponse>("GET", "/api/farm", null, "농장 정보를 불러오지 못했습니다.", onCompleted);
         }
 
-        public void BuyPlot(int plotIndex, Action<bool, string, BuyPlotResponse> onCompleted)
+        public void BuyPlot(int plotIndex, float worldX, float worldY, Action<bool, string, BuyPlotResponse> onCompleted)
+        {
+            string json = JsonUtility.ToJson(new PlotBuyRequest { plotIndex = plotIndex, worldX = worldX, worldY = worldY });
+            SendAuthenticated<BuyPlotResponse>("POST", "/api/plots/buy", json, "밭 구매에 실패했습니다.", onCompleted);
+        }
+
+        public void DeletePlot(int plotIndex, Action<bool, string, DeletePlotResponse> onCompleted)
         {
             string json = JsonUtility.ToJson(new PlotRequest { plotIndex = plotIndex });
-            SendAuthenticated<BuyPlotResponse>("POST", "/api/plots/buy", json, "밭 구매에 실패했습니다.", onCompleted);
+            SendAuthenticated<DeletePlotResponse>("POST", "/api/plots/delete", json, "밭 삭제에 실패했습니다.", onCompleted);
         }
 
         public void BuySeed(string seedType, int quantity, Action<bool, string, BuySeedResponse> onCompleted)
@@ -147,8 +153,49 @@ namespace FarmGame.Net
 
         public void HarvestCrop(int plotIndex, Action<bool, string, HarvestCropResponse> onCompleted)
         {
+            StartCoroutine(HarvestWithRetry(plotIndex, 3, onCompleted));
+        }
+
+        // 클라이언트와 서버의 시계가 몇 초 어긋나면 서버는 아직 not_ready일 수 있어 잠시 후 재시도한다.
+        private IEnumerator HarvestWithRetry(int plotIndex, int attemptsLeft, Action<bool, string, HarvestCropResponse> onCompleted)
+        {
+            if (!IsLoggedIn)
+            {
+                onCompleted?.Invoke(false, "로그인이 필요합니다.", null);
+                yield break;
+            }
+
             string json = JsonUtility.ToJson(new PlotRequest { plotIndex = plotIndex });
-            SendAuthenticated<HarvestCropResponse>("POST", "/api/crops/harvest", json, "수확 저장에 실패했습니다.", onCompleted);
+            bool success = false;
+            string responseBody = null;
+            yield return SendJson("POST", "/api/crops/harvest", json, true, (ok, body) =>
+            {
+                success = ok;
+                responseBody = body;
+            });
+
+            if (success)
+            {
+                HarvestCropResponse response = FromJsonSafe<HarvestCropResponse>(responseBody);
+                if (response == null)
+                {
+                    onCompleted?.Invoke(false, "서버 응답을 해석할 수 없습니다.", null);
+                    yield break;
+                }
+
+                onCompleted?.Invoke(true, string.Empty, response);
+                yield break;
+            }
+
+            ErrorResponse error = FromJsonSafe<ErrorResponse>(responseBody);
+            if (error != null && error.error == "not_ready" && attemptsLeft > 1)
+            {
+                yield return new WaitForSeconds(2f);
+                yield return HarvestWithRetry(plotIndex, attemptsLeft - 1, onCompleted);
+                yield break;
+            }
+
+            onCompleted?.Invoke(false, ExtractErrorMessage(responseBody, "수확 저장에 실패했습니다."), null);
         }
 
         private void SendAuthenticated<T>(
@@ -271,6 +318,14 @@ namespace FarmGame.Net
         }
 
         [Serializable]
+        private sealed class PlotBuyRequest
+        {
+            public int plotIndex;
+            public float worldX;
+            public float worldY;
+        }
+
+        [Serializable]
         private sealed class BuySeedRequest
         {
             public string seedType;
@@ -341,6 +396,9 @@ namespace FarmGame.Net
             public int water_count;
             public string ready_at;
             public string state;
+            public float world_x;
+            public float world_y;
+            public int has_position;
         }
 
         [Serializable]
@@ -356,6 +414,13 @@ namespace FarmGame.Net
             public int plotIndex;
             public int spent;
             public int money;
+        }
+
+        [Serializable]
+        public sealed class DeletePlotResponse
+        {
+            public int plotIndex;
+            public int refunded;
         }
 
         [Serializable]

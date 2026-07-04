@@ -17,6 +17,8 @@ namespace FarmGame.Core
         private const int PlotPrice = 100;
         private const int WaterSuccessReductionSeconds = 60;
         private const int WaterFailReductionSeconds = 30;
+        // Server/src/config/cropConfig.js의 DEFAULT/UNLOCKED_CONCURRENT_LIMIT과 동일해야 한다.
+        private const int ServerConcurrentPlotLimit = 9;
 
         [SerializeField] private CropDefinition wheat;
         [SerializeField] private CropDefinition[] crops;
@@ -438,17 +440,17 @@ namespace FarmGame.Core
                 return;
             }
 
+            isRemovingPlot = false;
+
             if (isServerBacked)
             {
-                isRemovingPlot = false;
-                hud.SetMessage("로그인 계정의 밭 삭제는 아직 서버에서 지원하지 않습니다.");
+                DeleteServerPlot(cell);
                 return;
             }
 
             cell.purchased = false;
             cell.hasWorldPosition = false;
             cell.ClearCrop();
-            isRemovingPlot = false;
             Commit("밭을 삭제했습니다. (환급 0원)");
         }
 
@@ -550,11 +552,10 @@ namespace FarmGame.Core
 
             if (isServerBacked)
             {
-                int concurrentLimit = serverBatchUnlocked ? 4 : 1;
                 int activePlotCount = saveData.cells.Count(candidate => !string.IsNullOrEmpty(candidate.cropId));
-                if (activePlotCount >= concurrentLimit)
+                if (activePlotCount >= ServerConcurrentPlotLimit)
                 {
-                    hud.SetMessage($"동시에 작업 가능한 밭은 {concurrentLimit}칸입니다. 먼저 자란 작물을 수확하세요.");
+                    hud.SetMessage($"동시에 작업 가능한 밭은 {ServerConcurrentPlotLimit}칸입니다. 먼저 자란 작물을 수확하세요.");
                     return;
                 }
 
@@ -694,6 +695,7 @@ namespace FarmGame.Core
             foreach (FarmCellState cell in saveData.cells)
             {
                 cell.purchased = false;
+                cell.hasWorldPosition = false;
                 cell.ClearCrop();
             }
 
@@ -716,7 +718,17 @@ namespace FarmGame.Core
                 }
 
                 cell.purchased = true;
-                EnsureServerPlotPosition(cell);
+                if (plot.has_position != 0)
+                {
+                    cell.hasWorldPosition = true;
+                    cell.worldX = plot.world_x;
+                    cell.worldY = plot.world_y;
+                }
+                else
+                {
+                    EnsureServerPlotPosition(cell);
+                }
+
                 if (string.IsNullOrEmpty(plot.crop_type) || plot.state == "empty")
                 {
                     cell.ClearCrop();
@@ -739,7 +751,7 @@ namespace FarmGame.Core
         {
             serverRequestInFlight = true;
             hud.SetMessage("밭 구매를 서버에 저장하는 중입니다...");
-            api.BuyPlot(ToPlotIndex(cell), (success, message, response) =>
+            api.BuyPlot(ToPlotIndex(cell), worldPosition.x, worldPosition.y, (success, message, response) =>
             {
                 serverRequestInFlight = false;
                 if (!success)
@@ -863,6 +875,26 @@ namespace FarmGame.Core
                     ? "  밀 5회 수확 달성! 2×2 작업이 해금되었습니다."
                     : string.Empty;
                 Commit($"{crop.DisplayName}을(를) 수확해 {response.earned}원을 벌었습니다!{unlockHint}");
+            });
+        }
+
+        private void DeleteServerPlot(FarmCellState cell)
+        {
+            serverRequestInFlight = true;
+            hud.SetMessage("밭 삭제를 서버에 반영하는 중입니다...");
+            api.DeletePlot(ToPlotIndex(cell), (success, message, response) =>
+            {
+                serverRequestInFlight = false;
+                if (!success)
+                {
+                    HandleServerMutationFailure(message);
+                    return;
+                }
+
+                cell.purchased = false;
+                cell.hasWorldPosition = false;
+                cell.ClearCrop();
+                Commit("밭을 삭제했습니다. (환급 0원)");
             });
         }
 

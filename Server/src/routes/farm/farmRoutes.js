@@ -21,12 +21,23 @@ router.get('/api/farm', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/plots/buy - 밭 구매 { plotIndex }
+// POST /api/plots/buy - 밭 구매 { plotIndex, worldX?, worldY? }
 router.post('/api/plots/buy', requireAuth, async (req, res) => {
   try {
-    const { plotIndex } = req.body || {};
-    const result = await farmService.buyPlot(req.user.id, plotIndex);
+    const { plotIndex, worldX, worldY } = req.body || {};
+    const result = await farmService.buyPlot(req.user.id, plotIndex, worldX, worldY);
     return res.status(200).json({ message: '밭을 구매했습니다.', ...result });
+  } catch (err) {
+    return handleError(res, err);
+  }
+});
+
+// POST /api/plots/delete - 밭 삭제 { plotIndex } (빈 밭만, 환급 없음)
+router.post('/api/plots/delete', requireAuth, async (req, res) => {
+  try {
+    const { plotIndex } = req.body || {};
+    const result = await farmService.deletePlot(req.user.id, plotIndex);
+    return res.status(200).json({ message: '밭을 삭제했습니다.', ...result });
   } catch (err) {
     return handleError(res, err);
   }

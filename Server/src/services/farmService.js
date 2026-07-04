@@ -72,7 +72,9 @@ async function getFarmData(userId) {
     await syncPlotStates(conn, userId);
 
     const [plots] = await conn.execute(
-      'SELECT plot_index, unlocked, crop_type, planted_at, water_count, ready_at, state FROM plots WHERE user_id = ? ORDER BY plot_index ASC',
+      `SELECT plot_index, unlocked, crop_type, planted_at, water_count, ready_at, state,
+              world_x, world_y, (world_x IS NOT NULL AND world_y IS NOT NULL) AS has_position
+       FROM plots WHERE user_id = ? ORDER BY plot_index ASC`,
       [userId]
     );
     const [inventory] = await conn.execute(
@@ -98,9 +100,12 @@ async function getFarmData(userId) {
   }
 }
 
-/** 2) 밭 구매 (POST /api/plots/buy) body: { plotIndex } */
-async function buyPlot(userId, plotIndex) {
+/** 2) 밭 구매 (POST /api/plots/buy) body: { plotIndex, worldX?, worldY? } */
+async function buyPlot(userId, plotIndex, worldX, worldY) {
   validatePlotIndex(plotIndex);
+  // 자유 배치 좌표는 선택 사항이며 숫자가 아니면 NULL(기본 그리드 위치)로 저장한다.
+  const posX = Number.isFinite(worldX) ? worldX : null;
+  const posY = Number.isFinite(worldY) ? worldY : null;
 
   const conn = await pool.getConnection();
   try {
@@ -127,18 +132,59 @@ async function buyPlot(userId, plotIndex) {
 
     if (existing.length > 0) {
       await conn.execute(
-        "UPDATE plots SET unlocked = TRUE, state = 'empty' WHERE user_id = ? AND plot_index = ?",
-        [userId, plotIndex]
+        "UPDATE plots SET unlocked = TRUE, state = 'empty', world_x = ?, world_y = ? WHERE user_id = ? AND plot_index = ?",
+        [posX, posY, userId, plotIndex]
       );
     } else {
       await conn.execute(
-        "INSERT INTO plots (user_id, plot_index, unlocked, state) VALUES (?, ?, TRUE, 'empty')",
-        [userId, plotIndex]
+        "INSERT INTO plots (user_id, plot_index, unlocked, state, world_x, world_y) VALUES (?, ?, TRUE, 'empty', ?, ?)",
+        [userId, plotIndex, posX, posY]
       );
     }
 
     await conn.commit();
     return { plotIndex, spent: PLOT_PRICE, money: playerState.money - PLOT_PRICE };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+/** 2-1) 밭 삭제 (POST /api/plots/delete) body: { plotIndex } — 빈 밭만 삭제 가능, 환급 없음 */
+async function deletePlot(userId, plotIndex) {
+  validatePlotIndex(plotIndex);
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    await syncPlotStates(conn, userId);
+
+    const [plotRows] = await conn.execute(
+      'SELECT * FROM plots WHERE user_id = ? AND plot_index = ? FOR UPDATE',
+      [userId, plotIndex]
+    );
+    const plot = plotRows[0];
+    if (!plot || !plot.unlocked) {
+      throw new ApiError(404, 'plot_not_found', '구매하지 않은 밭입니다.');
+    }
+    if (plot.state !== 'empty') {
+      throw new ApiError(409, 'plot_not_empty', '작물이 자라는 밭은 삭제할 수 없습니다.');
+    }
+
+    await conn.execute(
+      `UPDATE plots
+       SET unlocked = FALSE, crop_type = NULL, planted_at = NULL,
+           water_count = 0, ready_at = NULL, state = 'empty',
+           world_x = NULL, world_y = NULL
+       WHERE user_id = ? AND plot_index = ?`,
+      [userId, plotIndex]
+    );
+
+    await conn.commit();
+    return { plotIndex, refunded: 0 };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -404,6 +450,7 @@ module.exports = {
   ApiError,
   getFarmData,
   buyPlot,
+  deletePlot,
   buySeed,
   plantCrop,
   waterCrop,
