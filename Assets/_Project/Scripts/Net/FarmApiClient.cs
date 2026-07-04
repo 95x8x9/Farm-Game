@@ -116,6 +116,73 @@ namespace FarmGame.Net
             }));
         }
 
+        public void GetFarm(Action<bool, string, FarmDataResponse> onCompleted)
+        {
+            SendAuthenticated<FarmDataResponse>("GET", "/api/farm", null, "농장 정보를 불러오지 못했습니다.", onCompleted);
+        }
+
+        public void BuyPlot(int plotIndex, Action<bool, string, BuyPlotResponse> onCompleted)
+        {
+            string json = JsonUtility.ToJson(new PlotRequest { plotIndex = plotIndex });
+            SendAuthenticated<BuyPlotResponse>("POST", "/api/plots/buy", json, "밭 구매에 실패했습니다.", onCompleted);
+        }
+
+        public void BuySeed(string seedType, int quantity, Action<bool, string, BuySeedResponse> onCompleted)
+        {
+            string json = JsonUtility.ToJson(new BuySeedRequest { seedType = seedType, quantity = quantity });
+            SendAuthenticated<BuySeedResponse>("POST", "/api/seeds/buy", json, "씨앗 구매에 실패했습니다.", onCompleted);
+        }
+
+        public void PlantCrop(int plotIndex, string seedType, Action<bool, string, PlantCropResponse> onCompleted)
+        {
+            string json = JsonUtility.ToJson(new PlantCropRequest { plotIndex = plotIndex, seedType = seedType });
+            SendAuthenticated<PlantCropResponse>("POST", "/api/crops/plant", json, "작물 심기에 실패했습니다.", onCompleted);
+        }
+
+        public void WaterCrop(int plotIndex, bool succeeded, Action<bool, string, WaterCropResponse> onCompleted)
+        {
+            string json = JsonUtility.ToJson(new WaterCropRequest { plotIndex = plotIndex, succeeded = succeeded });
+            SendAuthenticated<WaterCropResponse>("POST", "/api/crops/water", json, "물주기 저장에 실패했습니다.", onCompleted);
+        }
+
+        public void HarvestCrop(int plotIndex, Action<bool, string, HarvestCropResponse> onCompleted)
+        {
+            string json = JsonUtility.ToJson(new PlotRequest { plotIndex = plotIndex });
+            SendAuthenticated<HarvestCropResponse>("POST", "/api/crops/harvest", json, "수확 저장에 실패했습니다.", onCompleted);
+        }
+
+        private void SendAuthenticated<T>(
+            string method,
+            string path,
+            string jsonBody,
+            string fallbackMessage,
+            Action<bool, string, T> onCompleted) where T : class
+        {
+            if (!IsLoggedIn)
+            {
+                onCompleted?.Invoke(false, "로그인이 필요합니다.", null);
+                return;
+            }
+
+            StartCoroutine(SendJson(method, path, jsonBody, true, (success, body) =>
+            {
+                if (!success)
+                {
+                    onCompleted?.Invoke(false, ExtractErrorMessage(body, fallbackMessage), null);
+                    return;
+                }
+
+                T response = FromJsonSafe<T>(body);
+                if (response == null)
+                {
+                    onCompleted?.Invoke(false, "서버 응답을 해석할 수 없습니다.", null);
+                    return;
+                }
+
+                onCompleted?.Invoke(true, string.Empty, response);
+            }));
+        }
+
         private void SetSession(string token, string username)
         {
             Token = token;
@@ -198,6 +265,33 @@ namespace FarmGame.Net
         }
 
         [Serializable]
+        private sealed class PlotRequest
+        {
+            public int plotIndex;
+        }
+
+        [Serializable]
+        private sealed class BuySeedRequest
+        {
+            public string seedType;
+            public int quantity;
+        }
+
+        [Serializable]
+        private sealed class PlantCropRequest
+        {
+            public int plotIndex;
+            public string seedType;
+        }
+
+        [Serializable]
+        private sealed class WaterCropRequest
+        {
+            public int plotIndex;
+            public bool succeeded;
+        }
+
+        [Serializable]
         private sealed class UserDto
         {
             public int id;
@@ -223,6 +317,85 @@ namespace FarmGame.Net
         {
             public string error;
             public string message;
+        }
+
+        [Serializable]
+        public sealed class FarmDataResponse
+        {
+            public int money;
+            public int level;
+            public int wheat_harvest_count;
+            public bool batch_unlocked;
+            public PlotDto[] plots;
+            public InventoryDto[] inventory;
+        }
+
+        [Serializable]
+        public sealed class PlotDto
+        {
+            public int plot_index;
+            // MySQL BOOLEAN(TINYINT)은 mysql2에서 JSON 숫자 0/1로 직렬화된다.
+            public int unlocked;
+            public string crop_type;
+            public string planted_at;
+            public int water_count;
+            public string ready_at;
+            public string state;
+        }
+
+        [Serializable]
+        public sealed class InventoryDto
+        {
+            public string item_type;
+            public int quantity;
+        }
+
+        [Serializable]
+        public sealed class BuyPlotResponse
+        {
+            public int plotIndex;
+            public int spent;
+            public int money;
+        }
+
+        [Serializable]
+        public sealed class BuySeedResponse
+        {
+            public string seedType;
+            public int quantity;
+            public int spent;
+            public int money;
+        }
+
+        [Serializable]
+        public sealed class PlantCropResponse
+        {
+            public int plotIndex;
+            public string cropType;
+            public int growSeconds;
+        }
+
+        [Serializable]
+        public sealed class WaterCropResponse
+        {
+            public int plotIndex;
+            public bool succeeded;
+            public int reducedSeconds;
+            public int waterCount;
+            public int maxWaterCount;
+            public string readyAt;
+            public string state;
+        }
+
+        [Serializable]
+        public sealed class HarvestCropResponse
+        {
+            public int plotIndex;
+            public string cropType;
+            public int earned;
+            public int money;
+            public int wheat_harvest_count;
+            public bool batch_unlocked;
         }
     }
 }
