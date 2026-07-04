@@ -73,7 +73,14 @@ systemctl enable "${SERVICE_NAME}" httpd >/dev/null
 systemctl restart "${SERVICE_NAME}"
 systemctl reload httpd
 
-curl --fail --silent --show-error http://127.0.0.1/health
+curl \
+  --fail \
+  --silent \
+  --show-error \
+  --retry 10 \
+  --retry-delay 1 \
+  --retry-connrefused \
+  http://127.0.0.1/health
 echo
 
 mapfile -t old_releases < <(
