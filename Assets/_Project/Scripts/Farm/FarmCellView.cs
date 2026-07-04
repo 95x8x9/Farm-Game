@@ -11,6 +11,8 @@ namespace FarmGame.Farm
         private static Sprite cachedSeedSprite;
         private static Sprite cachedSproutSprite;
         private static Sprite cachedWheatSprite;
+        private static Sprite cachedGoldWheatSprite;
+        private static Sprite cachedWaterIconSprite;
 
         [SerializeField] private int x;
         [SerializeField] private int y;
@@ -21,6 +23,7 @@ namespace FarmGame.Farm
         [SerializeField] private Sprite seedSprite;
         [SerializeField] private Sprite sproutSprite;
         [SerializeField] private Sprite wheatSprite;
+        [SerializeField] private Sprite goldWheatSprite;
 
         public int X => x;
         public int Y => y;
@@ -87,8 +90,18 @@ namespace FarmGame.Farm
             }
             else if (status == FarmCellStatus.NeedsWater)
             {
-                accentRenderer.color = new Color(0.20f, 0.70f, 1f);
-                accentRenderer.transform.localScale = new Vector3(0.15f, 0.28f, 1f);
+                if (cachedWaterIconSprite != null)
+                {
+                    accentRenderer.sprite = cachedWaterIconSprite;
+                    accentRenderer.color = Color.white;
+                    accentRenderer.transform.localScale = new Vector3(0.36f, 0.36f, 1f);
+                }
+                else
+                {
+                    accentRenderer.color = new Color(0.20f, 0.70f, 1f);
+                    accentRenderer.transform.localScale = new Vector3(0.15f, 0.28f, 1f);
+                }
+
                 accentRenderer.transform.localPosition = new Vector3(0.38f, 0.36f, -0.2f);
             }
 
@@ -179,10 +192,17 @@ namespace FarmGame.Farm
 
             if (status == FarmCellStatus.Ready)
             {
-                return wheatSprite;
+                return goldWheatSprite != null ? goldWheatSprite : wheatSprite;
             }
 
-            return GetGrowthProgress(state, nowUtc) < 0.25f ? seedSprite : sproutSprite;
+            // 성장 단계: 씨앗(0~1/3) → 새싹(1/3~2/3) → 밀(2/3~완성), 수확 가능하면 황금 밀.
+            float progress = GetGrowthProgress(state, nowUtc);
+            if (progress < 1f / 3f)
+            {
+                return seedSprite;
+            }
+
+            return progress < 2f / 3f ? sproutSprite : wheatSprite;
         }
 
         private void EnsureVisuals()
@@ -192,11 +212,16 @@ namespace FarmGame.Farm
             cachedSeedSprite ??= LoadFirstSprite("Image/tile_soil_seed");
             cachedSproutSprite ??= LoadFirstSprite("Image/tile_soil_sprout");
             cachedWheatSprite ??= LoadFirstSprite("Image/tile_soil_wheat");
+            cachedGoldWheatSprite ??= LoadFirstSprite("Image/tile_soil_wheat_gold");
+            cachedWaterIconSprite ??= LoadFirstSprite("Image/icon_water");
 
-            soilSprite ??= cachedSoilSprite;
-            seedSprite ??= cachedSeedSprite;
-            sproutSprite ??= cachedSproutSprite;
-            wheatSprite ??= cachedWheatSprite;
+            // 씬에 직렬화된 스프라이트 필드는 미할당 시 '가짜 null'이 되므로
+            // C# ??= 대신 Unity의 == 연산자로 검사해야 한다.
+            if (soilSprite == null) { soilSprite = cachedSoilSprite; }
+            if (seedSprite == null) { seedSprite = cachedSeedSprite; }
+            if (sproutSprite == null) { sproutSprite = cachedSproutSprite; }
+            if (wheatSprite == null) { wheatSprite = cachedWheatSprite; }
+            if (goldWheatSprite == null) { goldWheatSprite = cachedGoldWheatSprite; }
 
             soilRenderer ??= GetComponent<SpriteRenderer>();
             soilRenderer.sprite ??= soilSprite ?? squareSprite;

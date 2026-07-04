@@ -42,6 +42,12 @@ namespace FarmGame.Farm
                 return;
             }
 
+            if (gameManager.IsRemovingPlot && (cancelWithKeyboard || cancelWithMouse))
+            {
+                gameManager.CancelPlotRemoval();
+                return;
+            }
+
             if (gameManager.IsInputBlocked)
             {
                 return;
